@@ -70,7 +70,7 @@
       </div>
 
       <div class="space-y-6">
-        <div v-for="(q, idx) in questions.filter(q => wrongAnswerIds.includes(q.id))" :key="q.id" 
+        <div v-for="(q, _idx) in questions.filter(q => wrongAnswerIds.includes(q.id))" :key="q.id" 
              class="p-6 bg-red-50/50 border border-red-100 rounded-xl">
           <div class="flex gap-4">
             <span class="w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 font-bold rounded-lg shrink-0">
