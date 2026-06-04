@@ -70,7 +70,7 @@
       </div>
 
       <div class="space-y-6">
-        <div v-for="(q, _idx) in questions.filter(q => wrongAnswerIds.includes(q.id))" :key="q.id" 
+        <div v-for="(q, idx) in questions.filter(q => wrongAnswerIds.includes(q.id))" :key="q.id" 
              class="p-6 bg-red-50/50 border border-red-100 rounded-xl">
           <div class="flex gap-4">
             <span class="w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 font-bold rounded-lg shrink-0">
@@ -123,7 +123,7 @@
         </h3>
 
         <div class="space-y-3" v-if="questions[currentQuestionIndex]">
-          <label v-for="(opt, idx) in questions[currentQuestionIndex].shuffledOptions" :key="idx" 
+          <label v-for="opt in questions[currentQuestionIndex].shuffledOptions" :key="opt.displayLabel" 
             class="flex items-center gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all hover:bg-slate-50"
             :class="answers[questions[currentQuestionIndex].id] === opt.text ? 'border-bssn-cyan bg-cyan-50/30 shadow-sm ring-2 ring-bssn-cyan/10' : 'border-slate-100 bg-white'">
             
@@ -179,11 +179,9 @@ const score = ref(0)
 const isPassed = ref(false)
 const attemptsLeft = ref(2)
 
-// STATE UNTUK REVIEW
 const wrongAnswerIds = ref<string[]>([])
 const isReviewing = ref(false)
 
-// ================= TIMER LOGIC =================
 const DEFAULT_TIME_LIMIT_MINUTES = 30
 const timeLeft = ref(DEFAULT_TIME_LIMIT_MINUTES * 60)
 let timerInterval: ReturnType<typeof setInterval> | undefined = undefined 
@@ -212,7 +210,6 @@ const stopTimer = () => {
   if (timerInterval) clearInterval(timerInterval)
 }
 
-// ================= STATE PERSISTENCE =================
 const storageKey = computed(() => {
   return `quiz_state_${activeModule.value?.id}_${authStore.user?.id}`
 })
@@ -239,7 +236,6 @@ watch([answers, timeLeft], () => {
   }
 }, { deep: true })
 
-// ================= QUIZ LOGIC =================
 const shuffleArray = (array: any[]) => {
   const newArr = [...array]
   for (let i = newArr.length - 1; i > 0; i--) {
@@ -270,7 +266,6 @@ const fetchQuizData = async () => {
     activeModule.value = progressData.modules
     activeProgress.value = progressData
 
-    // PERUBAHAN KEAMANAN: Memanggil dari secure_quiz_questions agar is_correct tidak terekspos
     const { data: qData, error: qError } = await supabase
       .from('secure_quiz_questions')
       .select('id, module_id, question_text, options') 
@@ -294,8 +289,9 @@ const fetchQuizData = async () => {
       startTimer()
     }
 
-  } catch (error) {
-    console.error("Gagal menarik data evaluasi:", error)
+  } catch (error: any) {
+    console.error("Gagal menarik data evaluasi:", JSON.stringify(error, null, 2))
+    alert(`Gagal memuat ujian: ${error?.message || error?.details || JSON.stringify(error)}`)
   } finally {
     isLoading.value = false
   }
@@ -305,7 +301,6 @@ const nextQuestion = () => { if (currentQuestionIndex.value < questions.value.le
 const prevQuestion = () => { if (currentQuestionIndex.value > 0) currentQuestionIndex.value-- }
 
 const submitQuiz = async () => {
-
   if (!activeModule.value || !activeModule.value.id) {
     alert("Terjadi kesalahan: Data ujian tidak termuat dengan sempurna. Silakan muat ulang halaman.");
     return;
