@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '../lib/supabaseClient'
-import { useAuthStore } from './authStore'
+import { useAuthStore } from '../store/authStore'
 
 export interface Module {
   id: string
