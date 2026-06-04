@@ -147,7 +147,7 @@
           Selanjutnya
         </button>
 
-        <button v-else @click="submitQuiz" :disabled="isSubmitting || Object.keys(answers).length < questions.length" 
+        <button v-else @click="submitQuiz" :disabled="isSubmitting || questions.length === 0 || Object.keys(answers).length < questions.length" 
           class="px-8 py-4 bg-bssn-cyan text-white font-black rounded-xl text-sm transition-all shadow-xl shadow-cyan-900/30 hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
           {{ isSubmitting ? 'Memvalidasi...' : 'Kirim Jawaban' }}
         </button>
@@ -305,6 +305,12 @@ const nextQuestion = () => { if (currentQuestionIndex.value < questions.value.le
 const prevQuestion = () => { if (currentQuestionIndex.value > 0) currentQuestionIndex.value-- }
 
 const submitQuiz = async () => {
+
+  if (!activeModule.value || !activeModule.value.id) {
+    alert("Terjadi kesalahan: Data ujian tidak termuat dengan sempurna. Silakan muat ulang halaman.");
+    return;
+  }
+
   isSubmitting.value = true
   stopTimer() 
 
