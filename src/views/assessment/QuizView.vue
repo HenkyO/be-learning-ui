@@ -47,6 +47,49 @@
           }}
         </p>
 
+        <button v-if="wrongAnswerIds.length > 0" @click="isReviewing = true; showResult = false" 
+          class="px-8 py-4 bg-white border border-slate-200 text-slate-800 font-black rounded-xl text-sm transition-all shadow-sm hover:bg-slate-50 block w-full max-w-xs mx-auto mb-4">
+          Tinjau Kesalahan
+        </button>
+
+        <button @click="router.push('/learning-path')" class="px-8 py-4 bg-slate-900 text-white font-black rounded-xl text-sm transition-all shadow-xl hover:bg-slate-800 w-full max-w-xs mx-auto">
+          Kembali ke Kurikulum
+        </button>
+      </div>
+    </div>
+
+    <div v-else-if="isReviewing" class="bg-white p-8 sm:p-10 rounded-[2rem] border border-slate-200 shadow-xl relative">
+      <div class="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
+        <div>
+          <h2 class="text-2xl font-black text-slate-900 mb-2">Evaluasi Hasil Ujian</h2>
+          <p class="text-slate-500 font-medium">Berikut adalah daftar pertanyaan yang belum Anda jawab dengan tepat.</p>
+        </div>
+        <button @click="isReviewing = false; showResult = true" class="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-sm transition-all">
+          Tutup Evaluasi
+        </button>
+      </div>
+
+      <div class="space-y-6">
+        <div v-for="(q, idx) in questions.filter(q => wrongAnswerIds.includes(q.id))" :key="q.id" 
+             class="p-6 bg-red-50/50 border border-red-100 rounded-xl">
+          <div class="flex gap-4">
+            <span class="w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 font-bold rounded-lg shrink-0">
+              {{ questions.findIndex(original => original.id === q.id) + 1 }}
+            </span>
+            <div>
+              <p class="text-slate-800 font-bold mb-3 leading-relaxed">{{ q.question_text }}</p>
+              <div class="bg-white px-4 py-3 border border-red-100 rounded-lg shadow-sm">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Jawaban Anda:</span>
+                <span class="text-slate-600 font-medium line-through decoration-red-400">
+                  {{ answers[q.id] || '(Tidak dijawab)' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="mt-8 text-center pt-8 border-t border-slate-100">
         <button @click="router.push('/learning-path')" class="px-8 py-4 bg-slate-900 text-white font-black rounded-xl text-sm transition-all shadow-xl hover:bg-slate-800">
           Kembali ke Kurikulum
         </button>
@@ -136,10 +179,14 @@ const score = ref(0)
 const isPassed = ref(false)
 const attemptsLeft = ref(2)
 
+// STATE UNTUK REVIEW
+const wrongAnswerIds = ref<string[]>([])
+const isReviewing = ref(false)
+
 // ================= TIMER LOGIC =================
 const DEFAULT_TIME_LIMIT_MINUTES = 30
 const timeLeft = ref(DEFAULT_TIME_LIMIT_MINUTES * 60)
-let timerInterval: ReturnType<typeof setInterval> | undefined = undefined
+let timerInterval: ReturnType<typeof setInterval> | undefined = undefined // FIX: TypeScript bug prevented build
 
 const formattedTime = computed(() => {
   const minutes = Math.floor(timeLeft.value / 60).toString().padStart(2, '0')
@@ -154,8 +201,7 @@ const startTimer = () => {
       timeLeft.value--
     } else {
       clearInterval(timerInterval)
-      // Force submit if time runs out, regardless of how many are answered
-      if (!isSubmitting.value && !showResult.value) {
+      if (!isSubmitting.value && !showResult.value && !isReviewing.value) {
         submitQuiz() 
       }
     }
@@ -184,9 +230,8 @@ const loadSavedState = () => {
   }
 }
 
-// Automatically save answers and remaining time to local storage when they change
 watch([answers, timeLeft], () => {
-  if (activeModule.value?.id && !isSubmitting.value && !showResult.value) {
+  if (activeModule.value?.id && !isSubmitting.value && !showResult.value && !isReviewing.value) {
     localStorage.setItem(storageKey.value, JSON.stringify({
       answers: answers.value,
       timeLeft: timeLeft.value
@@ -244,7 +289,6 @@ const fetchQuizData = async () => {
       
       questions.value = shuffleArray(processedQuestions)
       
-      // Initialize saved state and timer only after questions are loaded
       loadSavedState()
       startTimer()
     }
@@ -261,7 +305,7 @@ const prevQuestion = () => { if (currentQuestionIndex.value > 0) currentQuestion
 
 const submitQuiz = async () => {
   isSubmitting.value = true
-  stopTimer() // Stop the clock immediately during submission
+  stopTimer() 
 
   try {
     if (!authStore.user?.id) throw new Error('User not authenticated')
@@ -280,20 +324,21 @@ const submitQuiz = async () => {
       return
     }
 
+    // UPDATE: Tangkap ID jawaban salah dari backend RPC
     score.value = data.skor
     isPassed.value = data.lulus
     attemptsLeft.value = data.attempts_left
+    wrongAnswerIds.value = data.wrong_answers || []
     
     activeProgress.value.attempts += 1
     showResult.value = true
 
-    // Clear the local storage since the test is completed
     localStorage.removeItem(storageKey.value)
 
   } catch (error: any) {
     console.error("Detail Galat Supabase:", JSON.stringify(error, null, 2))
     alert("Terjadi kesalahan komunikasi enkripsi dengan server.")
-    startTimer() // Restart the clock if submission failed due to network error
+    startTimer() 
   } finally {
     isSubmitting.value = false
   }
@@ -302,6 +347,6 @@ const submitQuiz = async () => {
 onMounted(() => fetchQuizData())
 
 onBeforeUnmount(() => {
-  stopTimer() // Prevent memory leaks
+  stopTimer() 
 })
 </script>
