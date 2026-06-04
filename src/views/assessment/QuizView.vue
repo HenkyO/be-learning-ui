@@ -186,7 +186,7 @@ const isReviewing = ref(false)
 // ================= TIMER LOGIC =================
 const DEFAULT_TIME_LIMIT_MINUTES = 30
 const timeLeft = ref(DEFAULT_TIME_LIMIT_MINUTES * 60)
-let timerInterval: ReturnType<typeof setInterval> | undefined = undefined // FIX: TypeScript bug prevented build
+let timerInterval: ReturnType<typeof setInterval> | undefined = undefined 
 
 const formattedTime = computed(() => {
   const minutes = Math.floor(timeLeft.value / 60).toString().padStart(2, '0')
@@ -270,8 +270,9 @@ const fetchQuizData = async () => {
     activeModule.value = progressData.modules
     activeProgress.value = progressData
 
+    // PERUBAHAN KEAMANAN: Memanggil dari secure_quiz_questions agar is_correct tidak terekspos
     const { data: qData, error: qError } = await supabase
-      .from('questions')
+      .from('secure_quiz_questions')
       .select('id, module_id, question_text, options') 
       .eq('module_id', activeModule.value.id)
 
@@ -324,7 +325,6 @@ const submitQuiz = async () => {
       return
     }
 
-    // UPDATE: Tangkap ID jawaban salah dari backend RPC
     score.value = data.skor
     isPassed.value = data.lulus
     attemptsLeft.value = data.attempts_left

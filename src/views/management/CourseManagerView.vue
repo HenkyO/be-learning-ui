@@ -96,9 +96,10 @@
 
             <div class="space-y-2">
               <label class="text-xs font-black text-slate-500 uppercase tracking-widest">Dokumen Fisik</label>
-              <div v-if="editingModuleId && existingStoragePath && existingStoragePath !== 'pending-upload-storage'" class="mb-3 px-4 py-2 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-bold border border-cyan-100 flex items-center justify-between">
-                <span>Materi saat ini sudah terlampir.</span>
-                <a :href="existingStoragePath" target="_blank" class="underline hover:text-cyan-900">Lihat File</a>
+              
+              <div v-if="editingModuleId && existingStoragePath && existingStoragePath !== 'pending-upload-storage'" class="mb-3 px-4 py-3 bg-cyan-50 text-cyan-800 rounded-xl text-xs font-bold border border-cyan-100 flex flex-col gap-1 shadow-sm">
+                <span class="text-slate-500">Materi yang terlampir saat ini:</span>
+                <span class="font-mono text-[11px] truncate">{{ existingStoragePath.split('/').pop() }}</span>
               </div>
 
               <div class="relative group border-2 border-slate-200 border-dashed rounded-xl p-6 text-center bg-slate-50/50 hover:bg-slate-50 hover:border-bssn-cyan transition-all flex flex-col items-center justify-center min-h-[140px] cursor-pointer overflow-hidden">
@@ -269,13 +270,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../../lib/supabaseClient'
 
-// Interface Struktur Soal Dinamis
 interface QuizOption { text: string; is_correct: boolean; }
 interface QuizQuestion { text: string; options: QuizOption[]; }
 
 const activeTab = ref('add')
 
-// State Form Modul
 const editingModuleId = ref<string | null>(null)
 const existingStoragePath = ref('')
 const courseLevel = ref('Basic')
@@ -288,14 +287,12 @@ const isSaving = ref(false)
 const uploadStatus = ref('Simpan ke Database')
 const selectedFile = ref<File | null>(null)
 
-// State Daftar Modul & Arsip
 const modulesList = ref<any[]>([])
 const isFetching = ref(false)
 const isDeleting = ref(false)
 const showArchived = ref(false)
 const isRestoring = ref(false)
 
-// State Bank Soal Dinamis (Default: 4 Opsi agar mirip format lama saat buat baru)
 const questions = ref<QuizQuestion[]>([
   { 
     text: '', 
@@ -324,7 +321,6 @@ const toggleArchivedMode = () => {
   fetchModules()
 }
 
-// LOGIKA BANK SOAL DINAMIS
 const addQuestion = () => {
   questions.value.push({ 
     text: '', 
@@ -344,7 +340,6 @@ const addOption = (qIndex: number) => {
 const removeOption = (qIndex: number, optIndex: number) => {
   const q = questions.value[qIndex]
   if (q.options.length > 2) {
-    // Jika opsi yang dihapus adalah opsi benar, pindahkan status benar ke indeks 0
     if (q.options[optIndex].is_correct) {
       q.options[0].is_correct = true
     }
@@ -390,7 +385,6 @@ const startEdit = async (mod: any) => {
 
   const { data: qData } = await supabase.from('questions').select('*').eq('module_id', mod.id)
   if (qData && qData.length > 0) {
-    // Membaca dari struktur JSONB yang baru (atau fallback jika kosong)
     questions.value = qData.map(q => ({
       text: q.question_text,
       options: q.options && q.options.length > 0 
@@ -410,7 +404,6 @@ const handleSave = async () => {
     return
   }
 
-  // VALIDASI KETAT SOAL DINAMIS
   for (const [i, q] of questions.value.entries()) {
     if (!q.text.trim()) {
       alert(`Validasi Gagal: Pertanyaan Soal #${i + 1} masih kosong.`); return
@@ -442,8 +435,8 @@ const handleSave = async () => {
       const { error: uploadError } = await supabase.storage.from('course-media').upload(fileName, selectedFile.value)
       if (uploadError) throw uploadError
 
-      const { data: publicUrlData } = supabase.storage.from('course-media').getPublicUrl(fileName)
-      finalFileUrl = publicUrlData.publicUrl
+      // PERUBAHAN KEAMANAN: Hapus getPublicUrl, cukup simpan nama filenya saja
+      finalFileUrl = fileName
     }
 
     uploadStatus.value = 'Menulis Database...'
@@ -468,11 +461,10 @@ const handleSave = async () => {
       moduleIdToUse = moduleData.id
     }
 
-    // MEMASUKKAN PAYLOAD JSONB
     const questionsToInsert = questions.value.map(q => ({
       module_id: moduleIdToUse,
       question_text: q.text,
-      options: q.options // <-- Disimpan otomatis sebagai JSON array oleh Supabase
+      options: q.options 
     }))
 
     const { error: questionsError } = await supabase.from('questions').insert(questionsToInsert)
