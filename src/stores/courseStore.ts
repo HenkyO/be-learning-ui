@@ -104,13 +104,12 @@ export const useCourseStore = defineStore('course', () => {
     }
   }
 
-  // [UPDATED] Secured API Call via RPC
   const startModule = async (moduleId: string) => {
     isUpdating.value = true
     error.value = null
     
     try {
-      // Only pass the module_id. The server securely identifies the user via their JWT.
+      // 1. Panggil RPC orisinal untuk membuat/menginisialisasi progress
       const { error: rpcError } = await supabase.rpc('update_learning_progress', {
         p_module_id: moduleId,
         p_progress_type: 'START'
@@ -118,7 +117,16 @@ export const useCourseStore = defineStore('course', () => {
 
       if (rpcError) throw rpcError
 
-      // Update local state dynamically
+      // 2. [TAMBAHAN KEAMANAN] Catat waktu mulai (started_at) untuk timer ujian
+      if (authStore.user?.id) {
+        await supabase
+          .from('user_progress')
+          .update({ started_at: new Date().toISOString() })
+          .eq('user_id', authStore.user.id)
+          .eq('module_id', moduleId)
+      }
+
+      // 3. Update state lokal
       const moduleIndex = modules.value.findIndex(m => m.id === moduleId)
       if (moduleIndex !== -1 && modules.value[moduleIndex].progress! < 15) {
         modules.value[moduleIndex].status = 'Sedang Dipelajari'
@@ -135,7 +143,6 @@ export const useCourseStore = defineStore('course', () => {
     }
   }
 
-  // [UPDATED] Secured API Call via RPC
   const markAsRead = async (moduleId: string) => {
     isUpdating.value = true
     error.value = null
@@ -148,7 +155,6 @@ export const useCourseStore = defineStore('course', () => {
 
       if (rpcError) throw rpcError
 
-      // Update local state dynamically
       const moduleIndex = modules.value.findIndex(m => m.id === moduleId)
       if (moduleIndex !== -1 && modules.value[moduleIndex].progress! < 50) {
         modules.value[moduleIndex].progress = 50
