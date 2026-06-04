@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------
+  1. Konfigurasi Tema (Theme Configuration)
+  Definisi warna identitas visual BSSN di Tailwind v4
+  ------------------------------------------------
+*/
+@theme {
+  --color-bssn-blue: #0F172A;
+  --color-bssn-cyan: #06B6D4;
+}
+
+/* ------------------------------------------------
+  2. Pengaturan Global (Base Layer)
+  Penerapan gaya dasar untuk kenyamanan membaca di LMS
+  ------------------------------------------------
+*/
+@layer base {
+  html, body {
+    /* Menggunakan background sejuk (slate-50) dan teks gelap untuk kontras */
+    @apply bg-slate-50 text-slate-800 antialiased;
+    
+    /* Memastikan font default terlihat bersih dan modern */
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    
+    /* Menghilangkan margin bawaan browser */
+    margin: 0;
+    padding: 0;
+    
+    /* Membuat tinggi halaman minimal selayar penuh */
+    min-height: 100vh;
+  }
+}
