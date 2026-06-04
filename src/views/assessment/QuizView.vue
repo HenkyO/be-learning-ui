@@ -139,7 +139,7 @@ const attemptsLeft = ref(2)
 // ================= TIMER LOGIC =================
 const DEFAULT_TIME_LIMIT_MINUTES = 30
 const timeLeft = ref(DEFAULT_TIME_LIMIT_MINUTES * 60)
-let timerInterval: ReturnType<typeof setInterval> | null = null
+let timerInterval: ReturnType<typeof setInterval> | undefined = undefined
 
 const formattedTime = computed(() => {
   const minutes = Math.floor(timeLeft.value / 60).toString().padStart(2, '0')
