@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '../lib/supabaseClient'
-import { useAuthStore } from '../store/authStore'
+import { useAuthStore } from './authStore'
 
 export interface Module {
   id: string
@@ -9,6 +9,9 @@ export interface Module {
   description: string
   level: 'Basic' | 'Intermediate' | 'Advanced' | string
   created_at: string
+  order_index?: number       // Penambahan kolom urutan kustom
+  prerequisite_id?: string   // Penambahan kolom ID prasyarat (opsional)
+  
   // UI Specific State added during fetch
   status?: 'Terkunci' | 'Terbuka' | 'Sedang Dipelajari' | 'Selesai'
   progress?: number
@@ -32,15 +35,8 @@ export const useCourseStore = defineStore('course', () => {
     return Math.round(total / modules.value.length)
   })
 
-  const levelWeight = (level: string) => {
-    if (level.includes('Basic')) return 1
-    if (level.includes('Intermediate')) return 2
-    if (level.includes('Advanced')) return 3
-    return 4
-  }
-
   const fetchLearningPath = async (forceRefresh = false) => {
-    // Return cached data if valid and not forcing refresh
+    // Kembalikan data cache jika masih valid
     if (!forceRefresh && modules.value.length > 0 && (Date.now() - lastFetched.value) < CACHE_DURATION) {
       return
     }
@@ -54,7 +50,7 @@ export const useCourseStore = defineStore('course', () => {
     error.value = null
 
     try {
-      // 1. Fetch Modules
+      // 1. Tarik Data Modul
       const { data: modulesData, error: modError } = await supabase
         .from('modules')
         .select('*')
@@ -62,14 +58,12 @@ export const useCourseStore = defineStore('course', () => {
         
       if (modError) throw modError
 
+      // [UPDATE LOGIKA]: Urutkan berdasarkan order_index secara dinamis
       const sortedModules = (modulesData || []).sort((a, b) => {
-        if (levelWeight(a.level) !== levelWeight(b.level)) {
-          return levelWeight(a.level) - levelWeight(b.level)
-        }
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        return (a.order_index || 0) - (b.order_index || 0)
       })
 
-      // 2. Fetch User Progress
+      // 2. Tarik Progres Pengguna
       const { data: progressData, error: progError } = await supabase
         .from('user_progress')
         .select('*')
@@ -77,14 +71,13 @@ export const useCourseStore = defineStore('course', () => {
 
       if (progError) throw progError
 
-      // 3. Map Progress to Modules
+      // 3. Peta Progres untuk Kalkulasi Cepat
       const progressMap: Record<string, any> = {}
       progressData?.forEach(p => {
         progressMap[p.module_id] = p
       })
       
-      let previousCompleted = true 
-      
+      // [UPDATE LOGIKA]: Evaluasi Status berdasarkan Prerequisite ID
       modules.value = sortedModules.map((mod) => {
         const userProg = progressMap[mod.id]
         
@@ -92,14 +85,23 @@ export const useCourseStore = defineStore('course', () => {
         let progress = 0
         
         if (userProg) {
+          // Jika sudah pernah dibuka/dikerjakan, gunakan status dari database
           status = userProg.status
           progress = userProg.progress_percentage
-        } else if (previousCompleted) {
-          status = 'Terbuka'
-        }
-
-        if (status !== 'Selesai') {
-          previousCompleted = false
+        } else {
+          // Jika belum ada progres, evaluasi apakah ada prasyarat
+          if (!mod.prerequisite_id) {
+            // Modul bebas prasyarat otomatis terbuka
+            status = 'Terbuka' 
+          } else {
+            // Evaluasi status modul prasyaratnya
+            const prereqProgress = progressMap[mod.prerequisite_id]
+            if (prereqProgress && prereqProgress.status === 'Selesai') {
+              status = 'Terbuka' // Buka jika prasyaratnya sudah lulus
+            } else {
+              status = 'Terkunci' // Tetap kunci jika prasyarat belum diselesaikan
+            }
+          }
         }
 
         return { ...mod, status, progress }
@@ -155,7 +157,7 @@ export const useCourseStore = defineStore('course', () => {
         if (insertError) throw insertError
       }
 
-      // Update local state immediately without refetching everything
+      // Update state lokal
       const moduleIndex = modules.value.findIndex(m => m.id === moduleId)
       if (moduleIndex !== -1) {
         modules.value[moduleIndex].status = 'Sedang Dipelajari'
@@ -190,7 +192,6 @@ export const useCourseStore = defineStore('course', () => {
 
       if (updateError) throw updateError
 
-      // Update local state
       const moduleIndex = modules.value.findIndex(m => m.id === moduleId)
       if (moduleIndex !== -1) {
         modules.value[moduleIndex].progress = 50

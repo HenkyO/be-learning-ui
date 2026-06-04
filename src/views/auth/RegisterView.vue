@@ -52,9 +52,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { supabase } from '../../lib/supabaseClient'
+// Menggunakan authStore untuk delegasi penuh proses registrasi dan insert profil
+import { useAuthStore } from '../../store/authStore' 
 
 const router = useRouter()
+const authStore = useAuthStore()
+
 const fullName = ref('')
 const nip = ref('')
 const email = ref('')
@@ -69,19 +72,8 @@ const handleRegister = async () => {
 
   isLoading.value = true
   try {
-    // Cukup panggil signUp dengan metadata. Database trigger akan otomatis membuat baris di tabel profiles.
-    const { error } = await supabase.auth.signUp({
-      email: email.value,
-      password: password.value,
-      options: {
-        data: {
-          full_name: fullName.value,
-          nip: nip.value
-        }
-      }
-    })
-
-    if (error) throw error
+    // Delegasikan proses signUp dan fallback pembuatan profil ke store
+    await authStore.register(email.value, password.value, fullName.value, nip.value)
 
     alert('Pendaftaran berhasil! Silakan periksa email Anda untuk verifikasi (jika diaktifkan), lalu masuk menggunakan kredensial baru Anda.')
     router.push('/login')

@@ -70,15 +70,15 @@
 
       <div class="bg-white p-8 sm:p-10 rounded-[2rem] border border-slate-200 shadow-sm relative">
         <h3 class="text-xl font-bold text-slate-800 leading-relaxed mb-8">
-          {{ questions[currentQuestionIndex].question_text }}
+          {{ questions[currentQuestionIndex]?.question_text }}
         </h3>
 
-        <div class="space-y-3">
-          <label v-for="opt in questions[currentQuestionIndex].shuffledOptions" :key="opt.originalKey" 
+        <div class="space-y-3" v-if="questions[currentQuestionIndex]">
+          <label v-for="(opt, idx) in questions[currentQuestionIndex].shuffledOptions" :key="idx" 
             class="flex items-center gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all hover:bg-slate-50"
-            :class="answers[questions[currentQuestionIndex].id] === opt.originalKey ? 'border-bssn-cyan bg-cyan-50/30 shadow-sm ring-2 ring-bssn-cyan/10' : 'border-slate-100 bg-white'">
+            :class="answers[questions[currentQuestionIndex].id] === opt.text ? 'border-bssn-cyan bg-cyan-50/30 shadow-sm ring-2 ring-bssn-cyan/10' : 'border-slate-100 bg-white'">
             
-            <input type="radio" :name="'q_' + questions[currentQuestionIndex].id" :value="opt.originalKey" v-model="answers[questions[currentQuestionIndex].id]" class="w-5 h-5 text-bssn-cyan focus:ring-bssn-cyan border-slate-300">
+            <input type="radio" :name="'q_' + questions[currentQuestionIndex].id" :value="opt.text" v-model="answers[questions[currentQuestionIndex].id]" class="w-5 h-5 text-bssn-cyan focus:ring-bssn-cyan border-slate-300">
             <span class="font-black text-slate-400 w-6 text-lg">{{ opt.displayLabel }}.</span>
             <span class="text-sm font-bold text-slate-700 select-none">
               {{ opt.text }}
@@ -130,7 +130,6 @@ const score = ref(0)
 const isPassed = ref(false)
 const attemptsLeft = ref(2)
 
-// Utility to shuffle arrays (Fisher-Yates)
 const shuffleArray = (array: any[]) => {
   const newArr = [...array]
   for (let i = newArr.length - 1; i > 0; i--) {
@@ -161,36 +160,28 @@ const fetchQuizData = async () => {
     activeModule.value = progressData.modules
     activeProgress.value = progressData
 
-    // Tarik soal tanpa kunci jawaban
+    // Menarik data kolom `options` (JSONB), bukan lagi option_a, option_b
     const { data: qData, error: qError } = await supabase
       .from('questions')
-      .select('id, module_id, question_text, option_a, option_b, option_c, option_d') 
+      .select('id, module_id, question_text, options') 
       .eq('module_id', activeModule.value.id)
 
     if (qError) throw qError
     
-    // Shuffle Questions and their Options
     if (qData) {
       const processedQuestions = qData.map(q => {
-        // Create an array of options mapped to their original database keys (A, B, C, D)
-        const options = [
-          { originalKey: 'A', text: q.option_a },
-          { originalKey: 'B', text: q.option_b },
-          { originalKey: 'C', text: q.option_c },
-          { originalKey: 'D', text: q.option_d }
-        ]
+        // Fallback aman jika data JSONB kosong/rusak
+        const rawOptions = Array.isArray(q.options) ? q.options : []
         
-        // Shuffle the options array
-        const shuffledOptions = shuffleArray(options).map((opt, index) => ({
+        // Acak opsi dan berikan label A, B, C... sesuai indeks setelah diacak
+        const shuffledOptions = shuffleArray(rawOptions).map((opt, index) => ({
           ...opt,
-          // Assign a new display label (A, B, C, D) based on their new shuffled position
           displayLabel: String.fromCharCode(65 + index) 
         }))
 
         return { ...q, shuffledOptions }
       })
       
-      // Shuffle the order of the questions themselves
       questions.value = shuffleArray(processedQuestions)
     }
 
@@ -207,10 +198,9 @@ const prevQuestion = () => { if (currentQuestionIndex.value > 0) currentQuestion
 const submitQuiz = async () => {
   isSubmitting.value = true
   try {
-    if (!authStore.user?.id) {
-      throw new Error('User not authenticated')
-    }
+    if (!authStore.user?.id) throw new Error('User not authenticated')
 
+    // Mengirim payload answers berisi teks opsi yang dipilih, bukan lagi kunci A/B/C/D
     const { data, error } = await supabase.rpc('hitung_skor_ujian', {
       p_user_id: authStore.user.id,
       p_module_id: activeModule.value.id,
@@ -229,7 +219,6 @@ const submitQuiz = async () => {
     isPassed.value = data.lulus
     attemptsLeft.value = data.attempts_left
     
-    // Mutakhirkan visual state lokal
     activeProgress.value.attempts += 1
     showResult.value = true
 
