@@ -290,8 +290,8 @@ const submitQuiz = async () => {
     // Clear the local storage since the test is completed
     localStorage.removeItem(storageKey.value)
 
-  } catch (error) {
-    console.error("Gagal menyimpan evaluasi:", error)
+  } catch (error: any) {
+    console.error("Detail Galat Supabase:", JSON.stringify(error, null, 2))
     alert("Terjadi kesalahan komunikasi enkripsi dengan server.")
     startTimer() // Restart the clock if submission failed due to network error
   } finally {
