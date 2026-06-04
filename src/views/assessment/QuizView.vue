@@ -56,14 +56,20 @@
     <div v-else class="space-y-6">
       
       <div class="flex items-center justify-between bg-slate-900 p-8 rounded-[2rem] text-white shadow-xl shadow-slate-900/20">
-        <div>
-          <div class="flex items-center gap-3 mb-2">
+        <div class="flex-1">
+          <div class="flex items-center gap-4 mb-2">
             <span class="px-3 py-1 bg-slate-800 text-bssn-cyan text-[10px] font-black uppercase tracking-widest rounded-lg border border-slate-700">Post-Test</span>
             <span class="text-xs font-bold text-slate-400">Percobaan ke-{{ (activeProgress?.attempts || 0) + 1 }} dari 2</span>
+            
+            <div class="ml-auto flex items-center gap-2 px-4 py-1.5 rounded-lg border font-mono text-sm font-bold tracking-widest shadow-inner transition-colors"
+                 :class="timeLeft < 300 ? 'bg-red-500/20 border-red-500/50 text-red-400 animate-pulse' : 'bg-slate-800 border-slate-700 text-slate-300'">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              {{ formattedTime }}
+            </div>
           </div>
           <h2 class="text-2xl font-black">{{ activeModule?.title }}</h2>
         </div>
-        <div class="text-right shrink-0 bg-slate-800 p-4 rounded-2xl border border-slate-700">
+        <div class="text-right shrink-0 bg-slate-800 p-4 rounded-2xl border border-slate-700 ml-6">
           <div class="text-4xl font-black text-bssn-cyan">{{ currentQuestionIndex + 1 }}<span class="text-xl text-slate-500">/{{ questions.length }}</span></div>
         </div>
       </div>
@@ -109,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuthStore } from '../../store/authStore'
@@ -130,6 +136,65 @@ const score = ref(0)
 const isPassed = ref(false)
 const attemptsLeft = ref(2)
 
+// ================= TIMER LOGIC =================
+const DEFAULT_TIME_LIMIT_MINUTES = 30
+const timeLeft = ref(DEFAULT_TIME_LIMIT_MINUTES * 60)
+let timerInterval: ReturnType<typeof setInterval> | null = null
+
+const formattedTime = computed(() => {
+  const minutes = Math.floor(timeLeft.value / 60).toString().padStart(2, '0')
+  const seconds = (timeLeft.value % 60).toString().padStart(2, '0')
+  return `${minutes}:${seconds}`
+})
+
+const startTimer = () => {
+  if (timerInterval) clearInterval(timerInterval)
+  timerInterval = setInterval(() => {
+    if (timeLeft.value > 0) {
+      timeLeft.value--
+    } else {
+      clearInterval(timerInterval)
+      // Force submit if time runs out, regardless of how many are answered
+      if (!isSubmitting.value && !showResult.value) {
+        submitQuiz() 
+      }
+    }
+  }, 1000)
+}
+
+const stopTimer = () => {
+  if (timerInterval) clearInterval(timerInterval)
+}
+
+// ================= STATE PERSISTENCE =================
+const storageKey = computed(() => {
+  return `quiz_state_${activeModule.value?.id}_${authStore.user?.id}`
+})
+
+const loadSavedState = () => {
+  try {
+    const saved = localStorage.getItem(storageKey.value)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (parsed.answers) answers.value = parsed.answers
+      if (parsed.timeLeft) timeLeft.value = parsed.timeLeft
+    }
+  } catch (err) {
+    console.error("Gagal memuat sesi ujian sebelumnya", err)
+  }
+}
+
+// Automatically save answers and remaining time to local storage when they change
+watch([answers, timeLeft], () => {
+  if (activeModule.value?.id && !isSubmitting.value && !showResult.value) {
+    localStorage.setItem(storageKey.value, JSON.stringify({
+      answers: answers.value,
+      timeLeft: timeLeft.value
+    }))
+  }
+}, { deep: true })
+
+// ================= QUIZ LOGIC =================
 const shuffleArray = (array: any[]) => {
   const newArr = [...array]
   for (let i = newArr.length - 1; i > 0; i--) {
@@ -160,7 +225,6 @@ const fetchQuizData = async () => {
     activeModule.value = progressData.modules
     activeProgress.value = progressData
 
-    // Menarik data kolom `options` (JSONB), bukan lagi option_a, option_b
     const { data: qData, error: qError } = await supabase
       .from('questions')
       .select('id, module_id, question_text, options') 
@@ -170,19 +234,19 @@ const fetchQuizData = async () => {
     
     if (qData) {
       const processedQuestions = qData.map(q => {
-        // Fallback aman jika data JSONB kosong/rusak
         const rawOptions = Array.isArray(q.options) ? q.options : []
-        
-        // Acak opsi dan berikan label A, B, C... sesuai indeks setelah diacak
         const shuffledOptions = shuffleArray(rawOptions).map((opt, index) => ({
           ...opt,
           displayLabel: String.fromCharCode(65 + index) 
         }))
-
         return { ...q, shuffledOptions }
       })
       
       questions.value = shuffleArray(processedQuestions)
+      
+      // Initialize saved state and timer only after questions are loaded
+      loadSavedState()
+      startTimer()
     }
 
   } catch (error) {
@@ -197,10 +261,11 @@ const prevQuestion = () => { if (currentQuestionIndex.value > 0) currentQuestion
 
 const submitQuiz = async () => {
   isSubmitting.value = true
+  stopTimer() // Stop the clock immediately during submission
+
   try {
     if (!authStore.user?.id) throw new Error('User not authenticated')
 
-    // Mengirim payload answers berisi teks opsi yang dipilih, bukan lagi kunci A/B/C/D
     const { data, error } = await supabase.rpc('hitung_skor_ujian', {
       p_user_id: authStore.user.id,
       p_module_id: activeModule.value.id,
@@ -222,13 +287,21 @@ const submitQuiz = async () => {
     activeProgress.value.attempts += 1
     showResult.value = true
 
+    // Clear the local storage since the test is completed
+    localStorage.removeItem(storageKey.value)
+
   } catch (error) {
     console.error("Gagal menyimpan evaluasi:", error)
     alert("Terjadi kesalahan komunikasi enkripsi dengan server.")
+    startTimer() // Restart the clock if submission failed due to network error
   } finally {
     isSubmitting.value = false
   }
 }
 
 onMounted(() => fetchQuizData())
+
+onBeforeUnmount(() => {
+  stopTimer() // Prevent memory leaks
+})
 </script>

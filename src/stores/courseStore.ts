@@ -9,10 +9,8 @@ export interface Module {
   description: string
   level: 'Basic' | 'Intermediate' | 'Advanced' | string
   created_at: string
-  order_index?: number       // Penambahan kolom urutan kustom
-  prerequisite_id?: string   // Penambahan kolom ID prasyarat (opsional)
-  
-  // UI Specific State added during fetch
+  order_index?: number
+  prerequisite_id?: string
   status?: 'Terkunci' | 'Terbuka' | 'Sedang Dipelajari' | 'Selesai'
   progress?: number
 }
@@ -26,7 +24,6 @@ export const useCourseStore = defineStore('course', () => {
   const error = ref<string | null>(null)
   const lastFetched = ref<number>(0)
 
-  // Cache duration (e.g., 5 minutes)
   const CACHE_DURATION = 5 * 60 * 1000 
 
   const averageProgress = computed(() => {
@@ -36,7 +33,6 @@ export const useCourseStore = defineStore('course', () => {
   })
 
   const fetchLearningPath = async (forceRefresh = false) => {
-    // Kembalikan data cache jika masih valid
     if (!forceRefresh && modules.value.length > 0 && (Date.now() - lastFetched.value) < CACHE_DURATION) {
       return
     }
@@ -50,7 +46,6 @@ export const useCourseStore = defineStore('course', () => {
     error.value = null
 
     try {
-      // 1. Tarik Data Modul
       const { data: modulesData, error: modError } = await supabase
         .from('modules')
         .select('*')
@@ -58,12 +53,10 @@ export const useCourseStore = defineStore('course', () => {
         
       if (modError) throw modError
 
-      // [UPDATE LOGIKA]: Urutkan berdasarkan order_index secara dinamis
       const sortedModules = (modulesData || []).sort((a, b) => {
         return (a.order_index || 0) - (b.order_index || 0)
       })
 
-      // 2. Tarik Progres Pengguna
       const { data: progressData, error: progError } = await supabase
         .from('user_progress')
         .select('*')
@@ -71,13 +64,11 @@ export const useCourseStore = defineStore('course', () => {
 
       if (progError) throw progError
 
-      // 3. Peta Progres untuk Kalkulasi Cepat
       const progressMap: Record<string, any> = {}
       progressData?.forEach(p => {
         progressMap[p.module_id] = p
       })
       
-      // [UPDATE LOGIKA]: Evaluasi Status berdasarkan Prerequisite ID
       modules.value = sortedModules.map((mod) => {
         const userProg = progressMap[mod.id]
         
@@ -85,21 +76,17 @@ export const useCourseStore = defineStore('course', () => {
         let progress = 0
         
         if (userProg) {
-          // Jika sudah pernah dibuka/dikerjakan, gunakan status dari database
           status = userProg.status
           progress = userProg.progress_percentage
         } else {
-          // Jika belum ada progres, evaluasi apakah ada prasyarat
           if (!mod.prerequisite_id) {
-            // Modul bebas prasyarat otomatis terbuka
             status = 'Terbuka' 
           } else {
-            // Evaluasi status modul prasyaratnya
             const prereqProgress = progressMap[mod.prerequisite_id]
             if (prereqProgress && prereqProgress.status === 'Selesai') {
-              status = 'Terbuka' // Buka jika prasyaratnya sudah lulus
+              status = 'Terbuka'
             } else {
-              status = 'Terkunci' // Tetap kunci jika prasyarat belum diselesaikan
+              status = 'Terkunci'
             }
           }
         }
@@ -117,49 +104,23 @@ export const useCourseStore = defineStore('course', () => {
     }
   }
 
+  // [UPDATED] Secured API Call via RPC
   const startModule = async (moduleId: string) => {
-    if (!authStore.user?.id) return false
-    
     isUpdating.value = true
     error.value = null
     
     try {
-      const { data: existingRecord, error: checkError } = await supabase
-        .from('user_progress')
-        .select('id')
-        .eq('user_id', authStore.user.id)
-        .eq('module_id', moduleId)
-        .maybeSingle()
+      // Only pass the module_id. The server securely identifies the user via their JWT.
+      const { error: rpcError } = await supabase.rpc('update_learning_progress', {
+        p_module_id: moduleId,
+        p_progress_type: 'START'
+      })
 
-      if (checkError) throw checkError
+      if (rpcError) throw rpcError
 
-      if (existingRecord) {
-        const { error: updateError } = await supabase
-          .from('user_progress')
-          .update({
-            status: 'Sedang Dipelajari',
-            progress_percentage: 15,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingRecord.id)
-          
-        if (updateError) throw updateError
-      } else {
-        const { error: insertError } = await supabase
-          .from('user_progress')
-          .insert([{
-            user_id: authStore.user.id,
-            module_id: moduleId,
-            status: 'Sedang Dipelajari',
-            progress_percentage: 15
-          }])
-          
-        if (insertError) throw insertError
-      }
-
-      // Update state lokal
+      // Update local state dynamically
       const moduleIndex = modules.value.findIndex(m => m.id === moduleId)
-      if (moduleIndex !== -1) {
+      if (moduleIndex !== -1 && modules.value[moduleIndex].progress! < 15) {
         modules.value[moduleIndex].status = 'Sedang Dipelajari'
         modules.value[moduleIndex].progress = 15
       }
@@ -174,26 +135,22 @@ export const useCourseStore = defineStore('course', () => {
     }
   }
 
+  // [UPDATED] Secured API Call via RPC
   const markAsRead = async (moduleId: string) => {
-    if (!authStore.user?.id) return false
-
     isUpdating.value = true
     error.value = null
 
     try {
-      const { error: updateError } = await supabase
-        .from('user_progress')
-        .update({
-          progress_percentage: 50,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', authStore.user.id)
-        .eq('module_id', moduleId)
+      const { error: rpcError } = await supabase.rpc('update_learning_progress', {
+        p_module_id: moduleId,
+        p_progress_type: 'READ'
+      })
 
-      if (updateError) throw updateError
+      if (rpcError) throw rpcError
 
+      // Update local state dynamically
       const moduleIndex = modules.value.findIndex(m => m.id === moduleId)
-      if (moduleIndex !== -1) {
+      if (moduleIndex !== -1 && modules.value[moduleIndex].progress! < 50) {
         modules.value[moduleIndex].progress = 50
       }
 

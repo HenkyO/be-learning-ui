@@ -118,15 +118,17 @@ export interface Quiz {
   passing_score: number
 }
 
+export interface QuestionOption {
+  text: string
+}
+
 export interface Question {
   id: string
+  module_id: string
   question_text: string
-  option_a: string
-  option_b: string
-  option_c: string
-  option_d: string
-  correct_answer: 'A' | 'B' | 'C' | 'D'
+  options: QuestionOption[]
   explanation?: string
+  shuffledOptions?: Array<QuestionOption & { displayLabel: string }>
 }
 
 export interface UserProgress {
