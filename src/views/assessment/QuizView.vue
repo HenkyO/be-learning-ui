@@ -256,24 +256,23 @@ const fetchQuizData = async () => {
 
     // PERBAIKAN: Gunakan format array alih-alih maybeSingle()
     const { data: progressList, error: progressError } = await supabase
-      .from('user_progress')
-      .select('*, modules(*)')
-      .eq('user_id', authStore.user.id)
-      .eq('module_id', targetModuleId)
-      // Dihapus: filter 'Sedang Dipelajari' agar bisa me-review jika sudah selesai
+  .from('user_progress')
+  .select('*, modules(*)')
+  .eq('user_id', authStore.user.id)
+  .eq('module_id', targetModuleId)
 
-    if (progressError) throw progressError
-    
-    // Validasi apabila modul belum pernah diakses pengguna
-    if (!progressList || progressList.length === 0) {
-      isLoading.value = false
-      alert("Anda belum terdaftar atau belum memulai progres pada modul ini.");
-      router.push('/learning-path');
-      return
-    }
+if (progressError) throw progressError
 
-    // Ambil data dari index ke-0 secara aman
-    const progressData = progressList[0];
+// Validasi apabila modul belum pernah diakses pengguna
+if (!progressList || progressList.length === 0) {
+  isLoading.value = false
+  alert("Anda belum terdaftar atau belum memulai progres pada modul ini.");
+  router.push('/learning-path');
+  return
+}
+
+// Ekstraksi data pertama dari format array
+const progressData = progressList[0];
 
     activeModule.value = progressData.modules
     activeProgress.value = progressData
