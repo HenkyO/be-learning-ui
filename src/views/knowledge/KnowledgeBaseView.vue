@@ -171,7 +171,7 @@ const fetchActiveModule = async () => {
     if (!authStore.user?.id) return
 
     let query = supabase
-      .from('progress')
+      .from('user_progress')
       .select('*, modules(*)')
       .eq('user_id', authStore.user.id)
 
@@ -203,7 +203,7 @@ const markAsRead = async () => {
   try {
     // Memperbarui progres menjadi 50 secara langsung melalui Supabase
     const { error } = await supabase
-      .from('progress')
+      .from('user_progress')
       .update({ progress: 50 })
       .eq('user_id', authStore.user?.id)
       .eq('module_id', activeModule.value.id)

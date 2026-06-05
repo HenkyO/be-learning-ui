@@ -9,7 +9,7 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 async function testTables() {
-  const tables = ['profiles', 'modules', 'questions', 'progress']
+  const tables = ['profiles', 'modules', 'questions', 'user_progress']
   let allGood = true
   
   for (const table of tables) {

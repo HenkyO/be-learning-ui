@@ -138,7 +138,7 @@ const fetchAnalytics = async () => {
 
     // 4. Kalkulasi Rata-rata Progres Keseluruhan (Indeks Kelulusan)
     const { data: progressData, error: err4 } = await supabase
-      .from('progress')
+      .from('user_progress')
       .select('progress_percentage')
 
     if (!err4 && progressData && progressData.length > 0) {
