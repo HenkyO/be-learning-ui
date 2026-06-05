@@ -1,103 +1,114 @@
-// src/router/index.ts
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../store/authStore'
-import { supabase } from '../lib/supabaseClient'
+
+// Impor komponen tata letak secara langsung (Eager Loading)
+import DashboardLayout from '../layouts/DashboardLayout.vue'
+import AuthLayout from '../layouts/AuthLayout.vue'
 
 const routes = [
-  { path: '/', redirect: '/login' },
   {
     path: '/',
-    component: () => import('../layouts/AuthLayout.vue'),
+    component: DashboardLayout,
+    meta: { requiresAuth: true },
     children: [
-      { path: 'login', name: 'Otentikasi', component: () => import('../views/auth/LoginView.vue') },
-      { path: 'register', name: 'Registrasi', component: () => import('../views/auth/RegisterView.vue') },
-      { path: 'forgot-password', name: 'Lupa Password', component: () => import('../views/auth/ForgotPasswordView.vue') },
-      { path: 'update-password', name: 'Perbarui Kata Sandi', component: () => import('../views/auth/UpdatePasswordView.vue') }
+      {
+        path: '',
+        name: 'Dashboard',
+        component: () => import('../views/dashboard/DashboardView.vue')
+      },
+      {
+        path: 'learning-path',
+        name: 'LearningPath',
+        component: () => import('../views/learning/LearningPathView.vue')
+      },
+      {
+        // PERBAIKAN: Menggunakan parameter dinamis :moduleId untuk mencegah galat penamaan sesi kuis ganda
+        path: 'quiz/:moduleId',
+        name: 'Quiz',
+        component: () => import('../views/assessment/QuizView.vue'),
+        props: true
+      },
+      {
+        path: 'knowledge-base',
+        name: 'KnowledgeBase',
+        component: () => import('../views/knowledge/KnowledgeBaseView.vue')
+      },
+      {
+        path: 'pdf-viewer',
+        name: 'PdfViewer',
+        component: () => import('../views/knowledge/PdfViewerView.vue')
+      },
+      {
+        path: 'management/course',
+        name: 'CourseManagement',
+        component: () => import('../views/management/CourseManagerView.vue')
+      },
+      {
+        path: 'management/user',
+        name: 'UserManagement',
+        component: () => import('../views/management/UserManagementView.vue')
+      },
+      {
+        path: 'profile',
+        name: 'Profile',
+        component: () => import('../views/profile/ProfileView.vue')
+      }
     ]
   },
   {
-    path: '/',
-    component: () => import('../layouts/DashboardLayout.vue'),
+    path: '/auth',
+    component: AuthLayout,
+    meta: { requiresGuest: true },
     children: [
-      { path: 'dashboard', name: 'Dashboard Admin', component: () => import('../views/dashboard/DashboardView.vue') },
-      { path: 'learning-path', name: 'Kurikulum PKI', component: () => import('../views/learning/LearningPathView.vue') },
-      { path: 'knowledge-base', name: 'Knowledge Base', component: () => import('../views/knowledge/KnowledgeBaseView.vue') },
-      { path: 'pdf-viewer', name: 'Pembaca Dokumen', component: () => import('../views/knowledge/PdfViewerView.vue') },
-      { path: 'assessment', name: 'Evaluasi Kompetensi', component: () => import('../views/assessment/QuizView.vue') },
-      { path: 'management', name: 'Manajemen Modul', component: () => import('../views/management/CourseManagerView.vue') },
-      { path: 'users', name: 'Manajemen Pengguna', component: () => import('../views/management/UserManagementView.vue') },
-      { path: 'profile', name: 'Profil Pengguna', component: () => import('../views/profile/ProfileView.vue') }
+      {
+        path: 'login',
+        name: 'Login',
+        component: () => import('../views/auth/LoginView.vue')
+      },
+      {
+        path: 'register',
+        name: 'Register',
+        component: () => import('../views/auth/RegisterView.vue')
+      },
+      {
+        path: 'forgot-password',
+        name: 'ForgotPassword',
+        component: () => import('../views/auth/ForgotPasswordView.vue')
+      },
+      {
+        path: 'update-password',
+        name: 'UpdatePassword',
+        component: () => import('../views/auth/UpdatePasswordView.vue')
+      }
     ]
+  },
+  {
+    // Mengalihkan rute yang tidak dikenal kembali ke halaman utama
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 
-// Logika Proteksi Rute Terintegrasi RBAC (Role-Based Access Control)
-router.beforeEach(async (to, _from, next) => {
+// Navigation Guard untuk Manajemen Hak Akses (Authentication & Authorization)
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+  const isAuthenticated = !!authStore.user
 
-  // 1. Pastikan sesi login ditarik dari Supabase saat muat ulang halaman
-  if (!authStore.isAuthenticated) {
-    await authStore.initializeSession()
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    // Jika rute butuh login tapi pengguna belum terautentikasi, lempar ke halaman login
+    next({ name: 'Login' })
+  } else if (to.meta.requiresGuest && isAuthenticated) {
+    // Jika pengguna sudah login tapi mencoba mengakses halaman auth (login/register), kembalikan ke dashboard
+    next({ name: 'Dashboard' })
+  } else {
+    // Lanjutkan navigasi jika memenuhi syarat
+    next()
   }
-
-  const isAuthenticated = authStore.isAuthenticated
-  const publicPages = ['Otentikasi', 'Registrasi', 'Lupa Password']
-  const authRequired = !publicPages.includes(to.name as string)
-
-  // 2. Proteksi Dasar: Lempar ke Login jika belum masuk
-  if (authRequired && !isAuthenticated) {
-    return next({ name: 'Otentikasi' })
-  } 
-  
-  // 3. Proteksi Dasar: Lempar ke Kurikulum jika sudah masuk tapi mencoba buka halaman Login
-  if (!authRequired && isAuthenticated) {
-    return next({ name: 'Kurikulum PKI' })
-  }
-
-  // 4. Proteksi Elevasi Tingkat Lanjut (RBAC) untuk rute sensitif
-  if (isAuthenticated && authStore.user?.id) {
-    // Daftar rute yang haram diakses oleh Pegawai biasa
-    const restrictedRoutes = ['Manajemen Modul', 'Manajemen Pengguna', 'Dashboard Admin']
-    
-    if (restrictedRoutes.includes(to.name as string)) {
-      try {
-        // Cek secara real-time ke database apa jabatan asli user ini
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', authStore.user.id)
-          .single()
-
-        if (error || !data) throw new Error('Data profil tidak ditemukan')
-
-        // Aturan matriks akses
-        const role = data.role
-        const isTryingToAccessUsers = to.name === 'Manajemen Pengguna'
-        const isTryingToAccessAdminRoutes = restrictedRoutes.includes(to.name as string)
-
-        // Hanya Administrator yang boleh buka Manajemen Pengguna
-        if (isTryingToAccessUsers && role !== 'Administrator') {
-          return next({ name: 'Kurikulum PKI' })
-        }
-        
-        // Pegawai tidak boleh buka halaman Manajemen/Dashboard sama sekali
-        if (role === 'Pegawai' && isTryingToAccessAdminRoutes) {
-          return next({ name: 'Kurikulum PKI' })
-        }
-      } catch (err) {
-        console.error("RBAC Security Alert:", err)
-        return next({ name: 'Kurikulum PKI' })
-      }
-    }
-  }
-
-  // 5. Loloskan jika semua pemeriksaan aman
-  next()
 })
 
 export default router

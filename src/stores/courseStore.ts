@@ -3,167 +3,97 @@ import { ref, computed } from 'vue'
 import { supabase } from '../lib/supabaseClient'
 import { useAuthStore } from '../store/authStore'
 
-export interface Module {
-  id: string
-  title: string
-  description: string
-  level: 'Basic' | 'Intermediate' | 'Advanced' | string
-  created_at: string
-  order_index?: number
-  prerequisite_id?: string
-  status?: 'Terkunci' | 'Terbuka' | 'Sedang Dipelajari' | 'Selesai'
-  progress?: number
-}
-
 export const useCourseStore = defineStore('course', () => {
   const authStore = useAuthStore()
-  
-  const modules = ref<Module[]>([])
+
+  const modules = ref<any[]>([])
   const isLoading = ref(false)
   const isUpdating = ref(false)
   const error = ref<string | null>(null)
-  const lastFetched = ref<number>(0)
 
-  const CACHE_DURATION = 5 * 60 * 1000 
-
+  // Menghitung rata-rata akumulasi progres seluruh modul yang tersedia
   const averageProgress = computed(() => {
     if (modules.value.length === 0) return 0
     const total = modules.value.reduce((sum, mod) => sum + (mod.progress || 0), 0)
     return Math.round(total / modules.value.length)
   })
 
-  const fetchLearningPath = async (forceRefresh = false) => {
-    if (!forceRefresh && modules.value.length > 0 && (Date.now() - lastFetched.value) < CACHE_DURATION) {
-      return
-    }
-
-    if (!authStore.user?.id) {
-      error.value = 'User not authenticated'
-      return
-    }
-
+  // Mengambil jalur pembelajaran (Kombinasi data modul utama dan progres spesifik milik pengguna)
+  const fetchLearningPath = async () => {
     isLoading.value = true
     error.value = null
-
     try {
-      const { data: modulesData, error: modError } = await supabase
+      const userId = authStore.user?.id
+      if (!userId) throw new Error('Pengguna tidak terautentikasi.')
+
+      // 1. Tarik semua data modul terdaftar (Wajib menyertakan prerequisite_module_id)
+      const { data: modulesData, error: modulesError } = await supabase
         .from('modules')
-        .select('*')
-        .neq('is_deleted', true)
-        
-      if (modError) throw modError
+        .select('id, title, description, level, prerequisite_module_id, order_index')
+        .order('order_index', { ascending: true })
 
-      const sortedModules = (modulesData || []).sort((a, b) => {
-        return (a.order_index || 0) - (b.order_index || 0)
-      })
+      if (modulesError) throw modulesError
 
-      const { data: progressData, error: progError } = await supabase
+      // 2. Tarik relasi data progres belajar milik pengguna saat ini
+      const { data: progressData, error: progressError } = await supabase
         .from('user_progress')
-        .select('*')
-        .eq('user_id', authStore.user.id)
+        .select('module_id, status, progress, attempts')
+        .eq('user_id', userId)
 
-      if (progError) throw progError
+      if (progressError) throw progressError
 
-      const progressMap: Record<string, any> = {}
-      progressData?.forEach(p => {
-        progressMap[p.module_id] = p
-      })
-      
-      modules.value = sortedModules.map((mod) => {
-        const userProg = progressMap[mod.id]
+      // 3. Gabungkan struktur data modul dengan progres aktual pengguna untuk konsumsi antarmuka
+      modules.value = (modulesData || []).map((mod) => {
+        const userProg = (progressData || []).find((p) => p.module_id === mod.id)
         
-        let status = 'Terkunci'
-        let progress = 0
-        
-        if (userProg) {
-          status = userProg.status
-          progress = userProg.progress_percentage
-        } else {
-          if (!mod.prerequisite_id) {
-            status = 'Terbuka' 
-          } else {
-            const prereqProgress = progressMap[mod.prerequisite_id]
-            if (prereqProgress && prereqProgress.status === 'Selesai') {
-              status = 'Terbuka'
-            } else {
-              status = 'Terkunci'
-            }
-          }
+        return {
+          ...mod,
+          // Jika rekaman progress belum ada di database, pasang status default awal
+          status: userProg ? userProg.status : 'Belum Dimulai',
+          progress: userProg ? userProg.progress : 0,
+          attempts: userProg ? userProg.attempts : 0
         }
-
-        return { ...mod, status, progress }
       })
-      
-      lastFetched.value = Date.now()
-
     } catch (err: any) {
-      console.error('Galat menarik kurikulum:', err)
-      error.value = err.message
+      console.error('Gagal mengambil data jalur pembelajaran:', err)
+      error.value = err.message || 'Terjadi kesalahan internal koneksi server.'
     } finally {
       isLoading.value = false
     }
   }
 
+  // Menginisialisasi modul baru (Membuat record baris baru pada tabel user_progress)
   const startModule = async (moduleId: string) => {
     isUpdating.value = true
     error.value = null
-    
     try {
-      // 1. Panggil RPC orisinal untuk membuat/menginisialisasi progress
-      const { error: rpcError } = await supabase.rpc('update_learning_progress', {
-        p_module_id: moduleId,
-        p_progress_type: 'START'
-      })
+      const userId = authStore.user?.id
+      if (!userId) throw new Error('Pengguna tidak terautentikasi.')
 
-      if (rpcError) throw rpcError
+      // Sisipkan baris progres baru ke dalam database Supabase
+      const { error: insertError } = await supabase
+        .from('user_progress')
+        .insert({
+          user_id: userId,
+          module_id: moduleId,
+          status: 'Sedang Dipelajari',
+          progress: 0,
+          attempts: 0
+        })
 
-      // 2. [TAMBAHAN KEAMANAN] Catat waktu mulai (started_at) untuk timer ujian
-      if (authStore.user?.id) {
-        await supabase
-          .from('user_progress')
-          .update({ started_at: new Date().toISOString() })
-          .eq('user_id', authStore.user.id)
-          .eq('module_id', moduleId)
-      }
+      if (insertError) throw insertError
 
-      // 3. Update state lokal
-      const moduleIndex = modules.value.findIndex(m => m.id === moduleId)
-      if (moduleIndex !== -1 && modules.value[moduleIndex].progress! < 15) {
-        modules.value[moduleIndex].status = 'Sedang Dipelajari'
-        modules.value[moduleIndex].progress = 15
+      // Lakukan pembaruan state lokal untuk menghemat bandwidth (mencegah full hit query ulang)
+      const modIndex = modules.value.findIndex((m) => m.id === moduleId)
+      if (modIndex !== -1) {
+        modules.value[modIndex].status = 'Sedang Dipelajari'
+        modules.value[modIndex].progress = 0
       }
 
       return true
     } catch (err: any) {
-      console.error('Galat memperbarui progres:', err)
-      error.value = err.message
-      return false
-    } finally {
-      isUpdating.value = false
-    }
-  }
-
-  const markAsRead = async (moduleId: string) => {
-    isUpdating.value = true
-    error.value = null
-
-    try {
-      const { error: rpcError } = await supabase.rpc('update_learning_progress', {
-        p_module_id: moduleId,
-        p_progress_type: 'READ'
-      })
-
-      if (rpcError) throw rpcError
-
-      const moduleIndex = modules.value.findIndex(m => m.id === moduleId)
-      if (moduleIndex !== -1 && modules.value[moduleIndex].progress! < 50) {
-        modules.value[moduleIndex].progress = 50
-      }
-
-      return true
-    } catch (err: any) {
-      console.error('Galat menandai selesai dibaca:', err)
-      error.value = err.message
+      console.error('Gagal memulai modul:', err)
+      error.value = err.message || 'Gagal mengamankan penyimpanan progres baru.'
       return false
     } finally {
       isUpdating.value = false
@@ -177,7 +107,6 @@ export const useCourseStore = defineStore('course', () => {
     error,
     averageProgress,
     fetchLearningPath,
-    startModule,
-    markAsRead
+    startModule
   }
 })

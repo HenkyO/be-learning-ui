@@ -159,11 +159,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 
 const router = useRouter()
+const route = useRoute() // TAMBAHAN: Ekstraksi instance route saat ini
 const authStore = useAuthStore()
 
 const isLoading = ref(true)
@@ -250,18 +251,29 @@ const fetchQuizData = async () => {
   try {
     if (!authStore.user?.id) return
 
-    const { data: progressData, error: progressError } = await supabase
+    // TAMBAHAN: Ambil moduleId secara spesifik dari URL
+    const targetModuleId = route.params.moduleId
+
+    // PERBAIKAN: Gunakan format array alih-alih maybeSingle()
+    const { data: progressList, error: progressError } = await supabase
       .from('user_progress')
       .select('*, modules(*)')
       .eq('user_id', authStore.user.id)
-      .eq('status', 'Sedang Dipelajari')
-      .maybeSingle()
+      .eq('module_id', targetModuleId)
+      // Dihapus: filter 'Sedang Dipelajari' agar bisa me-review jika sudah selesai
 
     if (progressError) throw progressError
-    if (!progressData) {
+    
+    // Validasi apabila modul belum pernah diakses pengguna
+    if (!progressList || progressList.length === 0) {
       isLoading.value = false
+      alert("Anda belum terdaftar atau belum memulai progres pada modul ini.");
+      router.push('/learning-path');
       return
     }
+
+    // Ambil data dari index ke-0 secara aman
+    const progressData = progressList[0];
 
     activeModule.value = progressData.modules
     activeProgress.value = progressData

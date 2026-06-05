@@ -50,15 +50,15 @@
            hoverable
            :class="[
              'group h-full flex flex-col',
-             mod.status === 'Terkunci' ? 'opacity-70 scale-[0.98]' : '',
+             getLockInfo(mod).locked ? 'opacity-70 scale-[0.98]' : '',
              mod.status === 'Selesai' ? 'ring-2 ring-green-500/50' : '',
-             mod.status === 'Sedang Dipelajari' ? 'ring-2 ring-blue-500/50' : ''
+             (mod.status === 'Sedang Dipelajari' && !getLockInfo(mod).locked) ? 'ring-2 ring-blue-500/50' : ''
            ]">
            
         <template #cover>
           <div :class="[
-              'h-48 relative flex items-center justify-center',
-              mod.status === 'Terkunci' ? 'bg-slate-800 grayscale' : 'bg-slate-900'
+              'h-48 relative flex items-center justify-center overflow-hidden rounded-t-2xl',
+              getLockInfo(mod).locked ? 'bg-slate-800 grayscale' : 'bg-slate-900'
             ]">
             <div :class="[
                 'absolute inset-0 z-0 opacity-80 mix-blend-overlay',
@@ -69,7 +69,7 @@
             
             <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 24px 24px;"></div>
             
-            <div v-if="mod.status === 'Sedang Dipelajari'" class="absolute -right-14 top-6 bg-blue-600 text-white text-[10px] font-bold py-1 px-14 transform rotate-45 shadow-lg z-30 uppercase tracking-widest">
+            <div v-if="mod.status === 'Sedang Dipelajari' && !getLockInfo(mod).locked" class="absolute -right-14 top-6 bg-blue-600 text-white text-[10px] font-bold py-1 px-14 transform rotate-45 shadow-lg z-30 uppercase tracking-widest">
               Aktif
             </div>
 
@@ -78,7 +78,7 @@
               Tuntas
             </div>
             
-            <span class="text-6xl relative z-10 transition-transform duration-500 group-hover:scale-110" :class="{'animate-pulse': mod.status === 'Sedang Dipelajari'}">
+            <span class="text-6xl relative z-10 transition-transform duration-500 group-hover:scale-110" :class="{'animate-pulse': mod.status === 'Sedang Dipelajari' && !getLockInfo(mod).locked}">
               {{ mod.level === 'Basic' ? '🔰' : mod.level === 'Intermediate' ? '⚙️' : '🚀' }}
             </span>
           </div>
@@ -112,14 +112,22 @@
         </div>
 
         <template #footer>
-          <button v-if="mod.status === 'Selesai'" @click="interactWithModule(mod)" 
+          <div v-if="getLockInfo(mod).locked" class="w-full flex flex-col gap-1.5">
+            <button disabled 
+              class="w-full py-2.5 px-4 bg-slate-50 text-slate-400 font-semibold rounded-lg text-sm cursor-not-allowed text-center border border-slate-200">
+              <span class="flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                Terkunci
+              </span>
+            </button>
+            <span class="text-[10px] text-red-500 font-bold text-center leading-tight px-1">
+              {{ getLockInfo(mod).reason }}
+            </span>
+          </div>
+
+          <button v-else-if="mod.status === 'Selesai'" @click="interactWithModule(mod)" 
             class="w-full py-2.5 px-4 bg-white border border-slate-200 hover:border-green-500 hover:text-green-600 text-slate-700 font-semibold rounded-lg text-sm transition-colors text-center flex items-center justify-center gap-2">
             Tinjau Ulang
-          </button>
-          
-          <button v-else-if="mod.status === 'Terkunci'" disabled 
-            class="w-full py-2.5 px-4 bg-slate-50 text-slate-400 font-semibold rounded-lg text-sm cursor-not-allowed text-center border border-slate-100">
-            Terkunci
           </button>
           
           <button v-else @click="interactWithModule(mod)" :disabled="courseStore.isUpdating"
@@ -143,7 +151,39 @@ import ProgressBar from '../../components/ProgressBar.vue'
 const router = useRouter()
 const courseStore = useCourseStore()
 
+/**
+ * Logika evaluasi prasyarat (prerequisite) untuk menentukan apakah modul bisa diakses.
+ * Mengecek apakah terdapat prerequisite_module_id dan memvalidasi progresnya.
+ */
+const getLockInfo = (mod: any) => {
+  // Kondisi 1: Kunci statis dari database
+  if (mod.status === 'Terkunci') {
+    return { locked: true, reason: 'Akses ditahan secara administratif.' }
+  }
+
+  // Kondisi 2: Kunci dinamis berbasis prasyarat (relasi antar modul)
+  if (mod.prerequisite_module_id) {
+    const prerequisite = courseStore.modules.find(m => m.id === mod.prerequisite_module_id)
+    if (!prerequisite) {
+      return { locked: true, reason: 'Modul prasyarat tidak ditemukan di kurikulum.' }
+    }
+    
+    // Jika modul prasyarat belum diselesaikan
+    if (prerequisite.status !== 'Selesai') {
+      return { 
+        locked: true, 
+        reason: `Syarat: Selesaikan modul "${prerequisite.title}" terlebih dahulu.` 
+      }
+    }
+  }
+
+  return { locked: false, reason: '' }
+}
+
 const interactWithModule = async (mod: any) => {
+  // Proteksi ganda pada aksi klik jika antarmuka dimanipulasi
+  if (getLockInfo(mod).locked) return;
+
   if (mod.progress === 0 && mod.status !== 'Sedang Dipelajari') {
     const success = await courseStore.startModule(mod.id)
     if (!success) {

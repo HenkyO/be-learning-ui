@@ -121,7 +121,7 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
           </button>
           
-          <button v-else-if="activeProgress?.progress_percentage < 50" @click="markAsRead" :disabled="isMarkingRead" class="w-full py-4 px-4 bg-blue-500 hover:bg-blue-600 text-white font-black rounded-xl text-sm transition-all shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2 group disabled:opacity-50">
+          <button v-else-if="(activeProgress?.progress || 0) < 50" @click="markAsRead" :disabled="isMarkingRead" class="w-full py-4 px-4 bg-blue-500 hover:bg-blue-600 text-white font-black rounded-xl text-sm transition-all shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2 group disabled:opacity-50">
             <svg v-if="isMarkingRead" class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             {{ isMarkingRead ? 'Memproses...' : 'Tandai Telah Dibaca' }}
             <svg v-if="!isMarkingRead" class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
@@ -172,7 +172,6 @@ const fetchActiveModule = async () => {
   try {
     if (!authStore.user?.id) return
 
-    // Bangun kueri pencarian berdasarkan parameter URL (moduleId) atau status aktif
     let query = supabase
       .from('user_progress')
       .select('*, modules(*)')
@@ -184,13 +183,14 @@ const fetchActiveModule = async () => {
       query = query.eq('status', 'Sedang Dipelajari')
     }
 
-    const { data, error } = await query.maybeSingle()
+    // PERBAIKAN: Gunakan pemanggilan reguler (array) untuk menghindari galat PGRST116
+    const { data, error } = await query
 
     if (error) throw error
 
-    if (data && data.modules) {
-      activeModule.value = data.modules
-      activeProgress.value = data
+    if (data && data.length > 0) {
+      activeModule.value = data[0].modules
+      activeProgress.value = data[0]
     }
   } catch (error) {
     console.error("Gagal menarik data materi:", error)
@@ -203,17 +203,34 @@ const markAsRead = async () => {
   if (!activeModule.value) return
   isMarkingRead.value = true
   try {
-    const success = await courseStore.markAsRead(activeModule.value.id)
-    if (success && activeProgress.value) {
-      activeProgress.value.progress_percentage = 50
+    // Memperbarui progres menjadi 50 secara langsung melalui Supabase
+    const { error } = await supabase
+      .from('user_progress')
+      .update({ progress: 50 })
+      .eq('user_id', authStore.user?.id)
+      .eq('module_id', activeModule.value.id)
+
+    if (error) throw error
+
+    // Pembaruan state lokal untuk merefleksikan perubahan di UI secara instan
+    if (activeProgress.value) {
+      activeProgress.value.progress = 50
     }
+  } catch (error) {
+    console.error("Gagal memperbarui progres:", error)
+    alert("Gagal menyimpan progres membaca Anda ke server.")
   } finally {
     isMarkingRead.value = false
   }
 }
 
 const goToQuiz = () => {
-  router.push('/assessment')
+  // PERBAIKAN: Sinkronisasi rute dengan parameter dinamis
+  if (activeModule.value?.id) {
+    router.push({ name: 'Quiz', params: { moduleId: activeModule.value.id } })
+  } else {
+    alert("Kesalahan rute: ID Modul tidak ditemukan.")
+  }
 }
 
 onMounted(() => {
@@ -229,4 +246,4 @@ onMounted(() => {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
-</style>  
+</style>
