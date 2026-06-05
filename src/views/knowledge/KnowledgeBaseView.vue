@@ -155,12 +155,10 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuthStore } from '../../store/authStore'
-import { useCourseStore } from '../../stores/courseStore'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-const courseStore = useCourseStore()
 
 const isLoading = ref(true)
 const activeModule = ref<any>(null)
