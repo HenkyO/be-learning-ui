@@ -287,7 +287,7 @@ const fetchQuizData = async () => {
     activeProgress.value = progressData
 
     const { data: qData, error: qError } = await supabase
-      .from('secure_quiz_questions')
+      .from('questions')
       .select('id, module_id, question_text, options') 
       .eq('module_id', activeModule.value.id)
       .order('id', { ascending: true }) // Cache buster tambahan untuk tabel soal
