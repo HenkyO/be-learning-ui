@@ -251,28 +251,37 @@ const fetchQuizData = async () => {
   try {
     if (!authStore.user?.id) return
 
-    // TAMBAHAN: Ambil moduleId secara spesifik dari URL
     const targetModuleId = route.params.moduleId
+    
+    // Proteksi tambahan jika URL tidak valid
+    if (!targetModuleId) {
+      alert("Parameter modul tidak ditemukan.");
+      router.push('/learning-path');
+      return;
+    }
 
-    // PERBAIKAN: Gunakan format array alih-alih maybeSingle()
+    // --- CACHE BUSTER APPLIED ---
+    // Penambahan .order() akan mengubah URL menjadi "...&order=created_at.desc"
+    // Ini memaksa browser membuat koneksi jaringan BARU ke Supabase.
     const { data: progressList, error: progressError } = await supabase
-  .from('user_progress')
-  .select('*, modules(*)')
-  .eq('user_id', authStore.user.id)
-  .eq('module_id', targetModuleId)
+      .from('user_progress')
+      .select('*, modules(*)')
+      .eq('user_id', authStore.user.id)
+      .eq('module_id', targetModuleId)
+      .order('created_at', { ascending: false }) // <--- INJEKSI KUNCI
 
-if (progressError) throw progressError
+    if (progressError) throw progressError
 
-// Validasi apabila modul belum pernah diakses pengguna
-if (!progressList || progressList.length === 0) {
-  isLoading.value = false
-  alert("Anda belum terdaftar atau belum memulai progres pada modul ini.");
-  router.push('/learning-path');
-  return
-}
+    // Validasi apabila modul belum pernah diakses pengguna
+    if (!progressList || progressList.length === 0) {
+      isLoading.value = false
+      alert("Anda belum terdaftar atau belum memulai progres pada modul ini.");
+      router.push('/learning-path');
+      return
+    }
 
-// Ekstraksi data pertama dari format array
-const progressData = progressList[0];
+    // Karena diurutkan menurun, index [0] selalu memastikan kita mengambil progres percobaan terbaru
+    const progressData = progressList[0];
 
     activeModule.value = progressData.modules
     activeProgress.value = progressData
@@ -281,6 +290,7 @@ const progressData = progressList[0];
       .from('secure_quiz_questions')
       .select('id, module_id, question_text, options') 
       .eq('module_id', activeModule.value.id)
+      .order('id', { ascending: true }) // Cache buster tambahan untuk tabel soal
 
     if (qError) throw qError
     
