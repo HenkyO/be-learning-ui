@@ -20,13 +20,13 @@ user progress records.
 -- 1. Add is_deleted flag to modules
 ALTER TABLE public.modules ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
 
--- 2. Modify foreign key constraint on user_progress to avoid cascade delete
--- First, find the name of the existing constraint (often user_progress_module_id_fkey)
-ALTER TABLE public.user_progress DROP CONSTRAINT IF EXISTS user_progress_module_id_fkey;
+-- 2. Modify foreign key constraint on progress to avoid cascade delete
+-- First, find the name of the existing constraint (often progress_module_id_fkey)
+ALTER TABLE public.progress DROP CONSTRAINT IF EXISTS progress_module_id_fkey;
 
 -- Then add it back with ON DELETE SET NULL
-ALTER TABLE public.user_progress
-  ADD CONSTRAINT user_progress_module_id_fkey
+ALTER TABLE public.progress
+  ADD CONSTRAINT progress_module_id_fkey
   FOREIGN KEY (module_id)
   REFERENCES public.modules(id)
   ON DELETE SET NULL;

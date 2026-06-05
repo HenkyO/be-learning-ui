@@ -36,7 +36,7 @@ export const useCourseStore = defineStore('course', () => {
 
       // 2. Tarik relasi data progres belajar milik pengguna saat ini
       const { data: progressData, error: progressError } = await supabase
-        .from('user_progress')
+        .from('progress')
         .select('module_id, status, progress, attempts')
         .eq('user_id', userId)
 
@@ -62,7 +62,7 @@ export const useCourseStore = defineStore('course', () => {
     }
   }
 
-  // Menginisialisasi modul baru (Membuat record baris baru pada tabel user_progress)
+  // Menginisialisasi modul baru (Membuat record baris baru pada tabel progress)
   const startModule = async (moduleId: string) => {
     isUpdating.value = true
     error.value = null
@@ -72,7 +72,7 @@ export const useCourseStore = defineStore('course', () => {
 
       // Sisipkan baris progres baru ke dalam database Supabase
       const { error: insertError } = await supabase
-        .from('user_progress')
+        .from('progress')
         .insert({
           user_id: userId,
           module_id: moduleId,

@@ -96,7 +96,7 @@ const userInitials = computed(() => {
 
 const fetchStats = async () => {
   if (!authStore.user?.id) return
-  const { data } = await supabase.from('user_progress').select('status').eq('user_id', authStore.user.id)
+  const { data } = await supabase.from('progress').select('status').eq('user_id', authStore.user.id)
   if (data) {
     stats.value.completed = data.filter(p => p.status === 'Selesai').length
     stats.value.inProgress = data.filter(p => p.status === 'Sedang Dipelajari').length

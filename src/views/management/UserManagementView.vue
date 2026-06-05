@@ -251,7 +251,7 @@ const openProgressModal = async (user: any) => {
   
   try {
     const { data, error } = await supabase
-      .from('user_progress')
+      .from('progress')
       .select('*, modules(title)')
       .eq('user_id', user.id)
     if (error) throw error
@@ -269,7 +269,7 @@ const resetAttempts = async (progressId: string, moduleTitle: string) => {
   isResetting.value = true
   try {
     const { error } = await supabase
-      .from('user_progress')
+      .from('progress')
       .update({ attempts: 0, status: 'Sedang Dipelajari' }) 
       .eq('id', progressId)
       

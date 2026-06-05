@@ -264,7 +264,7 @@ const fetchQuizData = async () => {
     // Penambahan .order() akan mengubah URL menjadi "...&order=created_at.desc"
     // Ini memaksa browser membuat koneksi jaringan BARU ke Supabase.
     const { data: progressList, error: progressError } = await supabase
-      .from('user_progress')
+      .from('progress')
       .select('*, modules(*)')
       .eq('user_id', authStore.user.id)
       .eq('module_id', targetModuleId)
