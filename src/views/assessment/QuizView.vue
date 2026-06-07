@@ -356,34 +356,57 @@ const submitQuiz = async () => {
   try {
     if (!authStore.user?.id) throw new Error('User not authenticated')
 
-    const { data, error } = await supabase.rpc('hitung_skor_ujian', {
-      p_user_id: authStore.user.id,
-      p_module_id: activeModule.value.id,
-      p_answers: answers.value
-    })
+    // Evaluasi Skor secara Lokal (Menggantikan RPC yang usang/bermasalah)
+    let correctCount = 0;
+    const wrongIds: string[] = [];
 
-    if (error) throw error
+    questions.value.forEach(q => {
+      const userAnswer = answers.value[q.id];
+      const correctOpt = q.shuffledOptions.find((opt: any) => opt.is_correct === true);
+      
+      if (correctOpt && userAnswer === correctOpt.text) {
+        correctCount++;
+      } else {
+        wrongIds.push(q.id);
+      }
+    });
 
-    if (data.error) {
-      alert(data.error)
-      localStorage.removeItem(storageKey.value) // Reset state agar percobaan selanjutnya sinkron
-      router.push('/learning-path')
-      return
-    }
+    const totalQuestions = questions.value.length;
+    const calculatedScore = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+    const passed = calculatedScore >= 70; 
+    const currentAttempts = (activeProgress.value?.attempts || 0) + 1;
+    const left = Math.max(0, 2 - currentAttempts);
 
-    score.value = data.skor
-    isPassed.value = data.lulus
-    attemptsLeft.value = data.attempts_left
-    wrongAnswerIds.value = data.wrong_answers || []
+    // Update state di database
+    const { error: updateError } = await supabase
+      .from('user_progress')
+      .update({
+        attempts: currentAttempts,
+        status: passed ? 'Selesai' : (left === 0 ? 'Terkunci' : 'Sedang Dipelajari'),
+        progress: passed ? 100 : (activeProgress.value?.progress || 0)
+      })
+      .eq('id', activeProgress.value.id);
+
+    if (updateError) throw updateError;
+
+    // Tampilkan hasil
+    score.value = calculatedScore
+    isPassed.value = passed
+    attemptsLeft.value = left
+    wrongAnswerIds.value = wrongIds
     
-    activeProgress.value.attempts += 1
+    activeProgress.value.attempts = currentAttempts
+    if (passed) {
+      activeProgress.value.status = 'Selesai'
+      activeProgress.value.progress = 100
+    }
     showResult.value = true
 
     localStorage.removeItem(storageKey.value)
 
   } catch (error: any) {
-    console.error("Detail Galat Supabase:", JSON.stringify(error, null, 2))
-    alert("Terjadi kesalahan komunikasi enkripsi dengan server.")
+    console.error("Detail Galat Sinkronisasi:", JSON.stringify(error, null, 2))
+    alert("Terjadi kesalahan saat menyimpan hasil ujian.")
     startTimer() 
   } finally {
     isSubmitting.value = false
