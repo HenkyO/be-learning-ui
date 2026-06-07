@@ -261,14 +261,14 @@ const fetchQuizData = async () => {
     }
 
     // --- CACHE BUSTER APPLIED ---
-    // Penambahan .order() akan mengubah URL menjadi "...&order=created_at.desc"
+    // Penambahan .order() akan mengubah URL menjadi "...&order=updated_at.desc"
     // Ini memaksa browser membuat koneksi jaringan BARU ke Supabase.
     const { data: progressList, error: progressError } = await supabase
       .from('user_progress')
       .select('*, modules(*)')
       .eq('user_id', authStore.user.id)
       .eq('module_id', targetModuleId)
-      .order('created_at', { ascending: false }) // <--- INJEKSI KUNCI
+      .order('updated_at', { ascending: false }) // <--- INJEKSI KUNCI
 
     if (progressError) throw progressError
 
