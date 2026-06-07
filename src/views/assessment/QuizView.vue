@@ -318,8 +318,8 @@ const fetchQuizData = async () => {
         await supabase
           .from('user_progress')
           .update({ 
-            updated_at: new Date().toISOString(),
-            started_at: new Date().toISOString()
+            updated_at: 'now()',
+            started_at: 'now()'
           })
           .eq('id', activeProgress.value.id)
       }
