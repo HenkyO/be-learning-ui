@@ -111,4 +111,22 @@ router.beforeEach(async (to, _from, next) => {
   }
 })
 
+// Menangani galat saat file chunk JavaScript gagal dimuat akibat versi baru telah di-deploy
+router.onError((error, to) => {
+  const isChunkLoadFailed = error.message.includes('Failed to fetch dynamically imported module') || 
+                            error.message.includes('Importing a module script failed') ||
+                            error.message.includes('text/html')
+
+  if (isChunkLoadFailed) {
+    const reloadKey = `route_reload_${to.fullPath}`
+    if (!sessionStorage.getItem(reloadKey)) {
+      sessionStorage.setItem(reloadKey, 'true')
+      window.location.assign(to.fullPath)
+    } else {
+      console.error('Gagal memuat rute meskipun telah dimuat ulang:', error)
+      sessionStorage.removeItem(reloadKey)
+    }
+  }
+})
+
 export default router
