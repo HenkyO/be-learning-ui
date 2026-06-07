@@ -492,10 +492,15 @@ const fetchModules = async () => {
   isFetching.value = true
   try {
     let query = supabase.from('modules').select('*')
-    if (showArchived.value) query = query.eq('is_deleted', true)
-    else query = query.neq('is_deleted', true)
-      
+    
+    if (showArchived.value) {
+      query = query.eq('is_deleted', true)
+    } else {
+      query = query.neq('is_deleted', true).or('is_deleted.is.null') // Also handle nulls in case of legacy rows
+    }
+
     const { data, error } = await query.order('order_index', { ascending: true }).order('created_at', { ascending: false })
+    
     if (error) throw error
     modulesList.value = data || []
   } catch (error) {

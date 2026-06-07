@@ -169,32 +169,33 @@ const totalPages = computed(() => Math.ceil(totalUsers.value / itemsPerPage.valu
 const fetchUsers = async () => {
   loadingUsers.value = true
   try {
-    let query = supabase
-      .from('profiles')
-      .select('*', { count: 'exact' }) // Meminta Supabase menghitung total baris
-
-    // Implementasi Filter Pencarian
-    if (searchQuery.value.trim() !== '') {
-      query = query.or(`full_name.ilike.%${searchQuery.value}%,nip.ilike.%${searchQuery.value}%`)
-    }
-
-    // Kalkulasi Range Paginasi
     const from = (currentPage.value - 1) * itemsPerPage.value
     const to = from + itemsPerPage.value - 1
+    
+    // Step 1: Count
+    let countQuery = supabase.from('profiles').select('*', { count: 'exact', head: true })
+    if (searchQuery.value.trim() !== '') {
+      countQuery = countQuery.or(`full_name.ilike.%${searchQuery.value}%,nip.ilike.%${searchQuery.value}%`)
+    }
+    const { count, error: countError } = await countQuery
+    if (countError) throw countError
+    totalUsers.value = count || 0
 
-    query = query.order('role', { ascending: true })
-                 .order('created_at', { ascending: false })
-                 .range(from, to)
-
-    const { data, count, error } = await query
-
+    // Step 2: Fetch Data
+    let dataQuery = supabase.from('profiles').select('*')
+    if (searchQuery.value.trim() !== '') {
+      dataQuery = dataQuery.or(`full_name.ilike.%${searchQuery.value}%,nip.ilike.%${searchQuery.value}%`)
+    }
+    dataQuery = dataQuery.order('role', { ascending: true })
+                         .order('created_at', { ascending: false })
+                         .range(from, to)
+                         
+    const { data, error } = await dataQuery
     if (error) throw error
     
     users.value = data || []
-    totalUsers.value = count || 0
-
   } catch (error: any) {
-    console.error('Galat memuat pengguna:', error.message)
+    console.error('Galat memuat pengguna:', error)
   } finally {
     loadingUsers.value = false
   }
