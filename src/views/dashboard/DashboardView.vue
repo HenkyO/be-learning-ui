@@ -82,11 +82,11 @@
       <div class="bg-slate-50 md:w-1/3 border-l border-slate-200 p-10 flex flex-col justify-center">
         <p class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Aksi Cepat</p>
         <div class="space-y-3">
-          <button @click="$router.push('/management')" class="w-full py-3.5 px-4 bg-white border border-slate-200 hover:border-bssn-cyan text-slate-700 hover:text-bssn-cyan font-bold rounded-xl text-sm transition-all shadow-sm flex items-center justify-between group">
+          <button @click="$router.push('/management/course')" class="w-full py-3.5 px-4 bg-white border border-slate-200 hover:border-bssn-cyan text-slate-700 hover:text-bssn-cyan font-bold rounded-xl text-sm transition-all shadow-sm flex items-center justify-between group">
             Tambah Modul Baru
             <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </button>
-          <button @click="$router.push('/users')" class="w-full py-3.5 px-4 bg-white border border-slate-200 hover:border-bssn-cyan text-slate-700 hover:text-bssn-cyan font-bold rounded-xl text-sm transition-all shadow-sm flex items-center justify-between group">
+          <button @click="$router.push('/management/user')" class="w-full py-3.5 px-4 bg-white border border-slate-200 hover:border-bssn-cyan text-slate-700 hover:text-bssn-cyan font-bold rounded-xl text-sm transition-all shadow-sm flex items-center justify-between group">
             Kelola Akses Pengguna
             <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </button>
@@ -139,11 +139,11 @@ const fetchAnalytics = async () => {
     // 4. Kalkulasi Rata-rata Progres Keseluruhan (Indeks Kelulusan)
     const { data: progressData, error: err4 } = await supabase
       .from('user_progress')
-      .select('progress_percentage')
+      .select('status')
 
     if (!err4 && progressData && progressData.length > 0) {
-      const totalProgress = progressData.reduce((sum, curr) => sum + curr.progress_percentage, 0)
-      stats.value.averageProgress = Math.round(totalProgress / progressData.length)
+      const completedCount = progressData.filter((p: any) => p.status === 'Selesai').length
+      stats.value.averageProgress = Math.round((completedCount / progressData.length) * 100)
     } else {
       stats.value.averageProgress = 0
     }
