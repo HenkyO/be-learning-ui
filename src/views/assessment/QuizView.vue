@@ -220,6 +220,12 @@ const loadSavedState = () => {
     const saved = localStorage.getItem(storageKey.value)
     if (saved) {
       const parsed = JSON.parse(saved)
+      
+      if (parsed.timeLeft !== undefined && parsed.timeLeft <= 0) {
+        localStorage.removeItem(storageKey.value)
+        return false
+      }
+
       if (parsed.answers) answers.value = parsed.answers
       if (parsed.timeLeft) timeLeft.value = parsed.timeLeft
       return true
@@ -360,6 +366,7 @@ const submitQuiz = async () => {
 
     if (data.error) {
       alert(data.error)
+      localStorage.removeItem(storageKey.value) // Reset state agar percobaan selanjutnya sinkron
       router.push('/learning-path')
       return
     }
