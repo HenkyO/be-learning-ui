@@ -222,10 +222,12 @@ const loadSavedState = () => {
       const parsed = JSON.parse(saved)
       if (parsed.answers) answers.value = parsed.answers
       if (parsed.timeLeft) timeLeft.value = parsed.timeLeft
+      return true
     }
   } catch (err) {
     console.error("Gagal memuat sesi ujian sebelumnya", err)
   }
+  return false
 }
 
 watch([answers, timeLeft], () => {
@@ -306,7 +308,22 @@ const fetchQuizData = async () => {
       
       questions.value = shuffleArray(processedQuestions)
       
-      loadSavedState()
+      const hasSavedState = loadSavedState()
+      
+      // Jika ini adalah percobaan ujian yang baru (belum ada state tersimpan)
+      // Kita harus mereset timestamp di database agar RPC "hitung_skor_ujian"
+      // tidak menganggap batas waktu ujian (30 menit) sudah habis akibat selisih waktu 
+      // dari saat pengguna pertama kali membuka modul (Tandai Telah Dibaca).
+      if (!hasSavedState) {
+        await supabase
+          .from('user_progress')
+          .update({ 
+            updated_at: new Date().toISOString(),
+            started_at: new Date().toISOString()
+          })
+          .eq('id', activeProgress.value.id)
+      }
+      
       startTimer()
     }
 
