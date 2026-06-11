@@ -125,12 +125,25 @@ const updateProfile = async () => {
 
   try {
     // 1. Update Profile Information
-    const { error: profileError } = await supabase
+    const { data: updatedData, error: profileError } = await supabase
       .from('profiles')
       .update({ full_name: editForm.value.full_name, nip: editForm.value.nip })
       .eq('id', authStore.user.id)
+      .select()
 
     if (profileError) throw profileError
+    
+    if (!updatedData || updatedData.length === 0) {
+      throw new Error("Pembaruan gagal karena terhalang aturan keamanan database (RLS). Harap jalankan file migrasi SQL RLS.");
+    }
+
+    // 2. Sync with Auth User Metadata
+    await supabase.auth.updateUser({
+      data: {
+        full_name: editForm.value.full_name,
+        nip: editForm.value.nip
+      }
+    })
 
     // 2. Update Email if changed
     if (editForm.value.email !== authStore.user.email) {
