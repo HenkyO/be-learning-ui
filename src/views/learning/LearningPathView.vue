@@ -6,13 +6,15 @@
       <div class="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-purple-500/10 to-transparent rounded-full -ml-20 -mb-20 pointer-events-none blur-2xl"></div>
       
       <div class="relative z-10 max-w-3xl">
-        <div class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/80 backdrop-blur-md border border-slate-700/50 rounded-full text-bssn-cyan text-xs font-extrabold tracking-widest uppercase mb-6 shadow-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-          Kurikulum Inti Operasional
-        </div>
-        <h2 class="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight mb-4 leading-tight">Infrastruktur Kunci <span class="text-transparent bg-clip-text bg-gradient-to-r from-bssn-cyan to-blue-400">Publik</span></h2>
+        <button @click="$router.push('/catalog')" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/80 backdrop-blur-md border border-slate-700/50 rounded-full text-slate-300 hover:text-white text-xs font-extrabold tracking-widest uppercase mb-6 shadow-sm transition-colors cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          Kembali ke Katalog
+        </button>
+        <h2 class="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight mb-4 leading-tight">
+          {{ activeCurriculum?.title || 'Memuat Kurikulum...' }}
+        </h2>
         <p class="text-slate-400 text-base sm:text-lg font-medium leading-relaxed max-w-2xl">
-          Selesaikan modul secara berurutan untuk membuka tingkat kompetensi selanjutnya. Kurikulum ini dirancang khusus untuk standardisasi pemahaman operasional keamanan informasi di Balai Besar Sertifikasi Elektronik (BSrE).
+          {{ activeCurriculum?.description || 'Silakan tunggu, sedang memuat detail kurikulum.' }}
         </p>
       </div>
 
@@ -29,7 +31,7 @@
       </div>
     </div>
 
-    <div v-if="courseStore.isLoading" class="flex justify-center items-center py-40">
+    <div v-if="courseStore.isLoading || isCurriculumLoading" class="flex justify-center items-center py-40">
       <div class="relative">
         <div class="w-20 h-20 border-4 border-slate-100 rounded-full"></div>
         <div class="w-20 h-20 border-4 border-bssn-cyan rounded-full border-t-transparent animate-spin absolute top-0 left-0"></div>
@@ -41,7 +43,7 @@
         <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
       </div>
       <h3 class="text-2xl font-extrabold text-slate-800 mb-2">Kurikulum Masih Kosong</h3>
-      <p class="text-slate-500 text-base font-medium max-w-md mx-auto">Administrator atau Mentor belum mendistribusikan materi ke dalam jalur pembelajaran ini.</p>
+      <p class="text-slate-500 text-base font-medium max-w-md mx-auto">Administrator atau Mentor belum mendistribusikan modul ke dalam jalur pembelajaran ini.</p>
     </div>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
@@ -142,33 +144,31 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useCourseStore } from '../../stores/courseStore'
+import { supabase } from '../../lib/supabaseClient'
 import AppCard from '../../components/AppCard.vue'
 import ProgressBar from '../../components/ProgressBar.vue'
 
 const router = useRouter()
+const route = useRoute()
 const courseStore = useCourseStore()
 
-/**
- * Logika evaluasi prasyarat (prerequisite) untuk menentukan apakah modul bisa diakses.
- * Mengecek apakah terdapat prerequisite_module_id dan memvalidasi progresnya.
- */
+const activeCurriculum = ref<any>(null)
+const isCurriculumLoading = ref(false)
+
 const getLockInfo = (mod: any) => {
-  // Kondisi 1: Kunci statis dari database
   if (mod.status === 'Terkunci') {
     return { locked: true, reason: 'Akses ditahan secara administratif.' }
   }
 
-  // Kondisi 2: Kunci dinamis berbasis prasyarat (relasi antar modul)
   if (mod.prerequisite_module_id) {
     const prerequisite = courseStore.modules.find(m => m.id === mod.prerequisite_module_id)
     if (!prerequisite) {
       return { locked: true, reason: 'Modul prasyarat tidak ditemukan di kurikulum.' }
     }
     
-    // Jika modul prasyarat belum diselesaikan
     if (prerequisite.status !== 'Selesai') {
       return { 
         locked: true, 
@@ -181,7 +181,6 @@ const getLockInfo = (mod: any) => {
 }
 
 const interactWithModule = async (mod: any) => {
-  // Proteksi ganda pada aksi klik jika antarmuka dimanipulasi
   if (getLockInfo(mod).locked) return;
 
   if (mod.progress === 0 && mod.status !== 'Sedang Dipelajari') {
@@ -192,12 +191,27 @@ const interactWithModule = async (mod: any) => {
     }
   }
   
-  // Arahkan dengan query parameter agar halaman baca mengetahui materi mana yang harus ditarik
   router.push({ path: '/knowledge-base', query: { moduleId: mod.id } })
 }
 
-onMounted(() => {
-  courseStore.fetchLearningPath()
+onMounted(async () => {
+  const pathId = route.params.pathId as string
+  if (!pathId) {
+    router.push('/catalog')
+    return
+  }
+
+  isCurriculumLoading.value = true
+  try {
+    const { data } = await supabase.from('learning_paths').select('*').eq('id', pathId).single()
+    activeCurriculum.value = data
+  } catch (error) {
+    console.error("Gagal memuat detail kurikulum", error)
+  } finally {
+    isCurriculumLoading.value = false
+  }
+
+  courseStore.fetchLearningPath(pathId)
 })
 </script>
 

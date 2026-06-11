@@ -17,9 +17,15 @@ const routes = [
         component: () => import('../views/dashboard/DashboardView.vue')
       },
       {
-        path: 'learning-path',
+        path: 'catalog',
+        name: 'Catalog',
+        component: () => import('../views/learning/CurriculumCatalogView.vue')
+      },
+      {
+        path: 'learning-path/:pathId',
         name: 'LearningPath',
-        component: () => import('../views/learning/LearningPathView.vue')
+        component: () => import('../views/learning/LearningPathView.vue'),
+        props: true
       },
       {
         // PERBAIKAN: Menggunakan parameter dinamis :moduleId untuk mencegah galat penamaan sesi kuis ganda

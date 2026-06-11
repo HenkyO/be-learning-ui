@@ -100,6 +100,16 @@ export interface FormValidationResult {
 }
 
 // ============= LEARNING TYPES =============
+export interface LearningPath {
+  id: string
+  title: string
+  description: string
+  icon: string
+  is_published: boolean
+  created_at: string
+  updated_at?: string
+}
+
 export interface Subject {
   id: string
   module_id: string
@@ -122,6 +132,7 @@ export interface UserSubjectProgress {
 
 export interface Module {
   id: string
+  path_id?: string
   title: string
   description: string
   level: 'Basic' | 'Intermediate' | 'Advanced'

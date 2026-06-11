@@ -19,18 +19,24 @@ export const useCourseStore = defineStore('course', () => {
   })
 
   // Mengambil jalur pembelajaran (Kombinasi data modul utama dan progres spesifik milik pengguna)
-  const fetchLearningPath = async () => {
+  const fetchLearningPath = async (pathId?: string) => {
     isLoading.value = true
     error.value = null
     try {
       const userId = authStore.user?.id
       if (!userId) throw new Error('Pengguna tidak terautentikasi.')
 
-      // 1. Tarik semua data modul terdaftar (Wajib menyertakan prerequisite_module_id)
-      const { data: modulesData, error: modulesError } = await supabase
+      // 1. Tarik semua data modul terdaftar
+      let query = supabase
         .from('modules')
-        .select('id, title, description, level, prerequisite_module_id, order_index')
+        .select('id, path_id, title, description, level, prerequisite_module_id, order_index')
         .order('order_index', { ascending: true })
+        
+      if (pathId) {
+        query = query.eq('path_id', pathId)
+      }
+
+      const { data: modulesData, error: modulesError } = await query
 
       if (modulesError) throw modulesError
 

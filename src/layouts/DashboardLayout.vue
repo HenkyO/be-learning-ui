@@ -96,8 +96,8 @@ const breadcrumbItems = computed(() => {
   
   breadcrumbs.push({ label: 'Dashboard', path: '/' })
   
-  if (route.path === '/learning-path') {
-    breadcrumbs.push({ label: 'Kurikulum PKI' })
+  if (route.path === '/catalog' || route.path.startsWith('/learning-path')) {
+    breadcrumbs.push({ label: 'Katalog Kurikulum' })
   } else if (route.path.startsWith('/management/course')) {
     breadcrumbs.push({ label: 'Manajemen Modul' })
   } else if (route.path.startsWith('/management/user')) {
