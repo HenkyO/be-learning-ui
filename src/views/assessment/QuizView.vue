@@ -84,6 +84,12 @@
                   {{ answers[q.id] || '(Tidak dijawab)' }}
                 </span>
               </div>
+              <div class="bg-white px-4 py-3 border border-green-100 rounded-lg shadow-sm mt-3">
+                <span class="text-xs font-bold text-green-500 uppercase tracking-wider block mb-1">Jawaban Benar:</span>
+                <span class="text-slate-700 font-medium">
+                  {{ getCorrectOptionText(q) }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -182,6 +188,11 @@ const attemptsLeft = ref(2)
 
 const wrongAnswerIds = ref<string[]>([])
 const isReviewing = ref(false)
+
+const getCorrectOptionText = (q: any) => {
+  const correctOpt = q.shuffledOptions?.find((o: any) => String(o.is_correct) === 'true')
+  return correctOpt?.text || '(Tidak ada opsi benar yang diset)'
+}
 
 const DEFAULT_TIME_LIMIT_MINUTES = 30
 const timeLeft = ref(DEFAULT_TIME_LIMIT_MINUTES * 60)
@@ -302,7 +313,7 @@ const fetchQuizData = async () => {
 
     if (qError) throw qError
     
-    if (qData) {
+    if (qData && qData.length > 0) {
       const processedQuestions = qData.map(q => {
         const rawOptions = Array.isArray(q.options) ? q.options : []
         const shuffledOptions = shuffleArray(rawOptions).map((opt, index) => ({
@@ -316,10 +327,6 @@ const fetchQuizData = async () => {
       
       const hasSavedState = loadSavedState()
       
-      // Jika ini adalah percobaan ujian yang baru (belum ada state tersimpan)
-      // Kita harus mereset timestamp di database agar RPC "hitung_skor_ujian"
-      // tidak menganggap batas waktu ujian (30 menit) sudah habis akibat selisih waktu 
-      // dari saat pengguna pertama kali membuka modul (Tandai Telah Dibaca).
       if (!hasSavedState) {
         await supabase
           .from('user_progress')
@@ -331,6 +338,15 @@ const fetchQuizData = async () => {
       }
       
       startTimer()
+    } else {
+      // Auto-pass if there are no questions in this module
+      await supabase
+        .from('user_progress')
+        .update({ progress: 100, status: 'Selesai' })
+        .eq('id', activeProgress.value.id)
+        
+      alert("Modul ini tidak memiliki evaluasi ujian. Anda langsung dinyatakan lulus untuk modul ini.")
+      router.push('/learning-path')
     }
 
   } catch (error: any) {
@@ -362,7 +378,7 @@ const submitQuiz = async () => {
 
     questions.value.forEach(q => {
       const userAnswer = answers.value[q.id];
-      const correctOpt = q.shuffledOptions.find((opt: any) => opt.is_correct === true);
+      const correctOpt = q.shuffledOptions.find((opt: any) => String(opt.is_correct) === 'true');
       
       if (correctOpt && userAnswer === correctOpt.text) {
         correctCount++;
