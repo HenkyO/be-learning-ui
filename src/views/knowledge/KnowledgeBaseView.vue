@@ -31,15 +31,49 @@
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="!activeModule || subjectStore.subjects.length === 0" class="bg-white p-16 rounded-[2rem] border border-slate-200 shadow-sm text-center">
-      <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-slate-100 border-dashed">
-         <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+    <div v-else-if="!activeModule || subjectStore.subjects.length === 0" class="bg-white p-16 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
+      
+      <!-- === TAMBAHKAN BLOK INI: Tampilkan Video dari Modul jika ada === -->
+      <div v-if="activeModule?.storage_path && activeModule.storage_path !== 'pending-upload-storage'" class="w-full max-w-4xl flex flex-col items-center">
+        <video 
+          v-if="activeModule.storage_path.toLowerCase().includes('.mp4')" 
+          controls 
+          class="w-full rounded-xl shadow-lg border border-slate-200"
+        >
+          <source :src="activeModule.storage_path" type="video/mp4">
+          Browser Anda tidak mendukung pemutar video.
+        </video>
+        
+        <iframe 
+          v-else-if="activeModule.storage_path.toLowerCase().includes('.pdf')" 
+          :src="activeModule.storage_path" 
+          class="w-full h-[600px] rounded-xl shadow-lg border border-slate-200"
+        ></iframe>
+        
+        <a 
+          v-else 
+          :href="activeModule.storage_path" 
+          target="_blank" 
+          class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Buka Lampiran Materi
+        </a>
       </div>
-      <h3 class="text-2xl font-extrabold text-slate-800 mb-2">Materi Tidak Ditemukan</h3>
-      <p class="text-slate-500 mb-8 max-w-md mx-auto text-base font-medium">Modul ini belum memiliki daftar materi (Subject). Silakan hubungi Administrator.</p>
-      <button @click="router.push('/learning-path')" class="px-8 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-slate-900/20">
-        Kembali ke Kurikulum
-      </button>
+      <!-- ============================================================= -->
+
+      <!-- === PERBARUI BLOK LAMA ANDA MENJADI V-ELSE === -->
+      <div v-else class="flex flex-col items-center">
+        <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-slate-100 border-dashed">
+           <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+        </div>
+        <h3 class="text-2xl font-extrabold text-slate-800 mb-2">Materi Tidak Ditemukan</h3>
+        <p class="text-slate-500 mb-8 max-w-md mx-auto text-base font-medium">Modul ini belum memiliki daftar materi (Subject). Silakan hubungi Administrator.</p>
+        <button @click="router.push('/learning-path')" class="px-8 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-slate-900/20">
+          Kembali ke Kurikulum
+        </button>
+      </div>
+      <!-- ============================================== -->
+
     </div>
 
     <!-- Main Grid Layout: Sidebar & Content -->
