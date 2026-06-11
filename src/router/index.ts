@@ -7,6 +7,14 @@ import AuthLayout from '../layouts/AuthLayout.vue'
 
 const routes = [
   {
+    path: '/register',
+    redirect: '/auth/register'
+  },
+  {
+    path: '/login',
+    redirect: '/auth/login'
+  },
+  {
     path: '/',
     component: DashboardLayout,
     meta: { requiresAuth: true },
