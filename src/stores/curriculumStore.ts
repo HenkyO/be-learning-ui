@@ -13,7 +13,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     error.value = null
     try {
       const { data, error: fetchError } = await supabase
-        .from('curriculums')
+        .from('learning_paths')
         .select('*')
         .eq('is_published', true)
         .order('created_at', { ascending: true })

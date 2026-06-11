@@ -203,7 +203,7 @@ onMounted(async () => {
 
   isCurriculumLoading.value = true
   try {
-    const { data } = await supabase.from('curriculums').select('*').eq('id', pathId).single()
+    const { data } = await supabase.from('learning_paths').select('*').eq('id', pathId).single()
     activeCurriculum.value = data
   } catch (error) {
     console.error("Gagal memuat detail kurikulum", error)
