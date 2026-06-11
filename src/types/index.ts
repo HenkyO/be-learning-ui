@@ -100,6 +100,26 @@ export interface FormValidationResult {
 }
 
 // ============= LEARNING TYPES =============
+export interface Subject {
+  id: string
+  module_id: string
+  title: string
+  description: string
+  storage_path: string
+  content_type: 'pdf' | 'video' | 'text'
+  order_index: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface UserSubjectProgress {
+  id: string
+  user_id: string
+  subject_id: string
+  status: 'Belum Selesai' | 'Selesai'
+  completed_at?: string
+}
+
 export interface Module {
   id: string
   title: string
@@ -107,6 +127,7 @@ export interface Module {
   level: 'Basic' | 'Intermediate' | 'Advanced'
   order: number
   created_at: string
+  subjects?: Subject[]
 }
 
 export interface Quiz {
