@@ -124,6 +124,8 @@
                   <span :class="prog.status === 'Selesai' ? 'text-green-600 font-black' : 'text-slate-500 font-bold'">{{ prog.status }}</span>
                   <span class="w-1 h-1 rounded-full bg-slate-300"></span>
                   <span :class="prog.attempts >= 2 ? 'text-red-500 font-black' : 'text-slate-500 font-bold'">Percobaan: {{ prog.attempts }} / 2</span>
+                  <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                  <span :class="prog.score >= 70 ? 'text-green-600 font-black' : (prog.score > 0 ? 'text-red-500 font-bold' : 'text-slate-500 font-bold')">Skor: {{ prog.score || 0 }}</span>
                 </div>
               </div>
               

@@ -399,7 +399,8 @@ const submitQuiz = async () => {
       .update({
         attempts: currentAttempts,
         status: passed ? 'Selesai' : (left === 0 ? 'Terkunci' : 'Sedang Dipelajari'),
-        progress: passed ? 100 : (activeProgress.value?.progress || 0)
+        progress: passed ? 100 : (activeProgress.value?.progress || 0),
+        score: calculatedScore
       })
       .eq('id', activeProgress.value.id);
 
