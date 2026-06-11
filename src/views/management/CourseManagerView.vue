@@ -56,6 +56,16 @@
             <div v-if="editingModuleId" class="absolute top-0 inset-x-0 h-1 bg-bssn-cyan"></div>
             <h3 class="text-xl font-black text-slate-800 border-b border-slate-100 pb-4">Informasi Kurikulum</h3>
             
+            <div class="space-y-2 mt-4">
+              <label class="text-xs font-black text-slate-500 uppercase tracking-widest">Pilih Kurikulum (Path) *</label>
+              <select v-model="selectedPathId" class="w-full border-2 border-slate-100 bg-slate-50 rounded-xl py-3.5 px-4 text-sm font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-bssn-cyan/10 focus:border-bssn-cyan outline-none transition-all">
+                <option :value="null" disabled>-- Pilih Kurikulum Induk --</option>
+                <option v-for="path in curriculumStore.curriculums" :key="path.id" :value="path.id">
+                  {{ path.icon }} {{ path.title }}
+                </option>
+              </select>
+            </div>
+
             <div class="space-y-2">
               <label class="text-xs font-black text-slate-500 uppercase tracking-widest">Judul Materi</label>
               <input type="text" v-model="courseTitle" placeholder="Ketik judul modul..." class="w-full border-2 border-slate-100 bg-slate-50 rounded-xl py-3.5 px-4 text-sm font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-bssn-cyan/10 focus:border-bssn-cyan outline-none transition-all">
@@ -269,6 +279,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../../lib/supabaseClient'
+import { useCurriculumStore } from '../../stores/curriculumStore'
+
+const curriculumStore = useCurriculumStore()
 
 interface QuizOption { text: string; is_correct: boolean; }
 interface QuizQuestion { text: string; options: QuizOption[]; }
@@ -276,6 +289,7 @@ interface QuizQuestion { text: string; options: QuizOption[]; }
 const activeTab = ref('add')
 
 const editingModuleId = ref<string | null>(null)
+const selectedPathId = ref<string | null>(null)
 const existingStoragePath = ref('')
 const courseLevel = ref('Basic')
 const courseTitle = ref('')
@@ -357,6 +371,7 @@ const setCorrectOption = (qIndex: number, optIndex: number) => {
 
 const resetForm = () => {
   editingModuleId.value = null
+  selectedPathId.value = null
   courseTitle.value = ''
   courseDescription.value = ''
   courseLevel.value = 'Basic'
@@ -375,6 +390,7 @@ const resetForm = () => {
 
 const startEdit = async (mod: any) => {
   editingModuleId.value = mod.id
+  selectedPathId.value = mod.path_id || null
   courseTitle.value = mod.title
   courseDescription.value = mod.description
   courseLevel.value = mod.level
@@ -399,6 +415,11 @@ const startEdit = async (mod: any) => {
 }
 
 const handleSave = async () => {
+  if (!selectedPathId.value) {
+    alert('Aksi ditolak: Silakan pilih Kurikulum (Learning Path) terlebih dahulu.')
+    return
+  }
+
   if (!courseTitle.value || !courseDescription.value) {
     alert('Aksi ditolak: Lengkapi Judul dan Deskripsi Modul.')
     return
@@ -443,6 +464,7 @@ const handleSave = async () => {
     let moduleIdToUse = editingModuleId.value
 
     const payload = {
+      path_id: selectedPathId.value,
       title: courseTitle.value,
       level: courseLevel.value,
       description: courseDescription.value,
@@ -530,7 +552,10 @@ const restoreModule = async (mod: any) => {
   } catch (error: any) { alert('Galat: ' + error.message) } finally { isRestoring.value = false }
 }
 
-onMounted(() => fetchModules())
+onMounted(() => {
+  fetchModules()
+  curriculumStore.fetchCurriculums()
+})
 </script>
 
 <style scoped>
