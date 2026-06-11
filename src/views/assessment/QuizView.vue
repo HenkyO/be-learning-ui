@@ -101,7 +101,7 @@
       <div class="flex items-center justify-between bg-slate-900 p-8 rounded-[2rem] text-white shadow-xl shadow-slate-900/20">
         <div class="flex-1">
           <div class="flex items-center gap-4 mb-2">
-            <span class="px-3 py-1 bg-slate-800 text-bssn-cyan text-[10px] font-black uppercase tracking-widest rounded-lg border border-slate-700">Post-Test</span>
+            <span class="px-3 py-1 bg-slate-800 text-bssn-cyan text-[10px] font-black uppercase tracking-widest rounded-lg border border-slate-700">QUIZ</span>
             <span class="text-xs font-bold text-slate-400">Percobaan ke-{{ (activeProgress?.attempts || 0) + 1 }} dari 2</span>
             
             <div class="ml-auto flex items-center gap-2 px-4 py-1.5 rounded-lg border font-mono text-sm font-bold tracking-widest shadow-inner transition-colors"
