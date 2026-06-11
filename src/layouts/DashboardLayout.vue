@@ -94,22 +94,22 @@ const currentRouteName = computed(() => route.name)
 const breadcrumbItems = computed(() => {
   const breadcrumbs: Array<{ label: string; path?: string }> = []
   
-  breadcrumbs.push({ label: 'Dashboard', path: '/dashboard' })
+  breadcrumbs.push({ label: 'Dashboard', path: '/' })
   
   if (route.path === '/learning-path') {
     breadcrumbs.push({ label: 'Kurikulum PKI' })
-  } else if (route.path === '/management') {
+  } else if (route.path.startsWith('/management/course')) {
     breadcrumbs.push({ label: 'Manajemen Modul' })
-  } else if (route.path === '/users') {
+  } else if (route.path.startsWith('/management/user')) {
     breadcrumbs.push({ label: 'Manajemen Pengguna' })
   } else if (route.path === '/profile') {
     breadcrumbs.push({ label: 'Profil Pengguna' })
-  } else if (route.path.startsWith('/assessment')) {
+  } else if (route.path.startsWith('/quiz')) {
     breadcrumbs.push({ label: 'Penilaian' })
-    if (route.name === 'QuizView') {
+    if (route.name === 'Quiz') {
       breadcrumbs.push({ label: 'Kuis' })
     }
-  } else if (route.path.startsWith('/knowledge')) {
+  } else if (route.path.startsWith('/knowledge-base') || route.path.startsWith('/pdf-viewer')) {
     breadcrumbs.push({ label: 'Basis Pengetahuan' })
   }
   
@@ -132,7 +132,7 @@ const userInitials = computed(() => {
 const navigation = [
   { 
     name: 'Dashboard Admin', 
-    href: '/dashboard', 
+    href: '/', 
     icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>', 
     roles: ['Administrator'] 
   },
