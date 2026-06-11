@@ -63,12 +63,10 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../store/authStore'
-import { useRateLimiter } from '../../composables/useRateLimiter'
 import { useCsrfToken } from '../../composables/useCsrfToken'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const { recordAttempt, isLocked, getFormattedLockoutTime } = useRateLimiter('login')
 useCsrfToken() // Initialize CSRF protection
 
 const email = ref('')
@@ -78,14 +76,6 @@ const errors = ref<Record<string, string[]>>({})
 
 // Compute loading state from auth store
 const isLoading = computed(() => authStore.isLoading)
-
-// Compute lockout message
-const lockoutMessage = computed(() => {
-  if (isLocked.value) {
-    return `Akun terkunci. Coba lagi dalam ${getFormattedLockoutTime()}`
-  }
-  return ''
-})
 
 const handleLogin = async () => {
   errors.value = {}
@@ -114,20 +104,10 @@ const handleLogin = async () => {
     return
   }
 
-  // Check rate limit
-  if (isLocked.value) {
-    errorMessage.value = lockoutMessage.value
-    return
-  }
-
   try {
     await authStore.login(email.value, password.value)
-    recordAttempt() // Record successful attempt
     router.push('/dashboard')
   } catch (error: any) {
-    // Record failed attempt
-    recordAttempt()
-    
     // Use error message from store or fallback
     errorMessage.value = authStore.error || 'Login gagal. Silakan coba lagi.'
     console.error("Kesalahan Otentikasi:", error.message)
