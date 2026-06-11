@@ -247,7 +247,7 @@
               <td class="p-5">
                 <h4 class="text-sm font-black text-slate-900 mb-1 flex items-center gap-2">
                   {{ mod.title }}
-                  <span v-if="mod.prerequisite_id" title="Memiliki Prasyarat" class="text-amber-500">
+                  <span v-if="mod.prerequisite_module_id" title="Memiliki Prasyarat" class="text-amber-500">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                   </span>
                 </h4>
@@ -395,7 +395,7 @@ const startEdit = async (mod: any) => {
   courseDescription.value = mod.description
   courseLevel.value = mod.level
   moduleOrder.value = mod.order_index || 1
-  prerequisiteId.value = mod.prerequisite_id || null
+  prerequisiteId.value = mod.prerequisite_module_id || null
   existingStoragePath.value = mod.storage_path || 'pending-upload-storage'
   selectedFile.value = null
 
@@ -470,17 +470,46 @@ const handleSave = async () => {
       description: courseDescription.value,
       storage_path: finalFileUrl,
       order_index: moduleOrder.value,
-      prerequisite_id: prerequisiteId.value
+      prerequisite_module_id: prerequisiteId.value
     }
 
     if (editingModuleId.value) {
       const { error: updateError } = await supabase.from('modules').update(payload).eq('id', editingModuleId.value)
       if (updateError) throw updateError
+
+      // Update or create subject for this module
+      if (finalFileUrl && finalFileUrl !== 'pending-upload-storage') {
+        const { data: existingSubjects } = await supabase.from('subjects').select('id').eq('module_id', editingModuleId.value).order('order_index', { ascending: true }).limit(1)
+        if (existingSubjects && existingSubjects.length > 0) {
+          await supabase.from('subjects').update({ storage_path: finalFileUrl, content_type: finalFileUrl.toLowerCase().endsWith('.mp4') ? 'video' : 'pdf' }).eq('id', existingSubjects[0].id)
+        } else {
+          await supabase.from('subjects').insert([{
+            module_id: editingModuleId.value,
+            title: 'Materi Utama',
+            description: 'Materi dasar untuk modul ini.',
+            storage_path: finalFileUrl,
+            content_type: finalFileUrl.toLowerCase().endsWith('.mp4') ? 'video' : 'pdf',
+            order_index: 1
+          }])
+        }
+      }
+
       await supabase.from('questions').delete().eq('module_id', editingModuleId.value)
     } else {
       const { data: moduleData, error: moduleError } = await supabase.from('modules').insert([payload]).select().single()
       if (moduleError) throw moduleError
       moduleIdToUse = moduleData.id
+
+      if (finalFileUrl && finalFileUrl !== 'pending-upload-storage') {
+        await supabase.from('subjects').insert([{
+          module_id: moduleIdToUse,
+          title: 'Materi Utama',
+          description: 'Materi dasar untuk modul ini.',
+          storage_path: finalFileUrl,
+          content_type: finalFileUrl.toLowerCase().endsWith('.mp4') ? 'video' : 'pdf',
+          order_index: 1
+        }])
+      }
     }
 
     const questionsToInsert = questions.value.map(q => ({
@@ -554,7 +583,7 @@ const restoreModule = async (mod: any) => {
 
 onMounted(() => {
   fetchModules()
-  curriculumStore.fetchCurriculums()
+  curriculumStore.fetchCurriculums(true)
 })
 </script>
 

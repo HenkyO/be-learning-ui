@@ -8,15 +8,20 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  const fetchCurriculums = async () => {
+  const fetchCurriculums = async (adminMode = false) => {
     isLoading.value = true
     error.value = null
     try {
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from('learning_paths')
         .select('*')
-        .eq('is_published', true)
         .order('created_at', { ascending: true })
+
+      if (!adminMode) {
+        query = query.eq('is_published', true)
+      }
+
+      const { data, error: fetchError } = await query
 
       if (fetchError) throw fetchError
       curriculums.value = data || []
@@ -61,11 +66,62 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
+  const updateCurriculum = async (id: string, updates: { title?: string; description?: string; icon?: string; is_published?: boolean }) => {
+    isLoading.value = true
+    error.value = null
+    try {
+      const { data, error: updateError } = await supabase
+        .from('learning_paths')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+      
+      const index = curriculums.value.findIndex(c => c.id === id)
+      if (index !== -1 && data) {
+        curriculums.value[index] = data
+      }
+      return { success: true, data }
+    } catch (err: any) {
+      console.error('Gagal memperbarui kurikulum:', err)
+      error.value = err.message || 'Terjadi kesalahan saat memperbarui kurikulum.'
+      return { success: false, error: error.value }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const deleteCurriculum = async (id: string) => {
+    isLoading.value = true
+    error.value = null
+    try {
+      const { error: deleteError } = await supabase
+        .from('learning_paths')
+        .delete()
+        .eq('id', id)
+
+      if (deleteError) throw deleteError
+      
+      curriculums.value = curriculums.value.filter(c => c.id !== id)
+      return { success: true }
+    } catch (err: any) {
+      console.error('Gagal menghapus kurikulum:', err)
+      error.value = err.message || 'Terjadi kesalahan saat menghapus kurikulum.'
+      return { success: false, error: error.value }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   return {
     curriculums,
     isLoading,
     error,
     fetchCurriculums,
-    createCurriculum
+    createCurriculum,
+    updateCurriculum,
+    deleteCurriculum
   }
 })
