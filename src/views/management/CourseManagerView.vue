@@ -496,7 +496,7 @@ const fetchModules = async () => {
     if (showArchived.value) {
       query = query.eq('is_deleted', true)
     } else {
-      query = query.neq('is_deleted', true).or('is_deleted.is.null') // Also handle nulls in case of legacy rows
+      query = query.or('is_deleted.eq.false,is_deleted.is.null')
     }
 
     const { data, error } = await query.order('order_index', { ascending: true }).order('created_at', { ascending: false })
