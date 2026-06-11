@@ -57,8 +57,8 @@
           <tbody v-else class="text-sm font-medium text-slate-700 bg-white divide-y divide-slate-100">
             <tr v-for="user in users" :key="user.id" class="hover:bg-slate-50/50 transition-colors">
               <td class="p-5">
-                <p class="font-black text-slate-900 text-base mb-0.5">{{ user.full_name }}</p>
-                <p class="text-xs text-slate-500 font-bold">{{ user.nip }}</p>
+                <input type="text" v-model="user.full_name" placeholder="Nama Lengkap" class="font-black text-slate-900 text-base mb-0.5 w-full bg-transparent border-b-2 border-transparent focus:border-bssn-cyan outline-none transition-colors" />
+                <input type="text" v-model="user.nip" placeholder="NIP" class="text-xs text-slate-500 font-bold w-full bg-transparent border-b-2 border-transparent focus:border-bssn-cyan outline-none transition-colors" />
               </td>
               <td class="p-5">
                 <select v-model="user.role" class="border-2 border-slate-200 rounded-xl px-4 py-2 text-sm font-bold bg-white focus:ring-4 focus:ring-bssn-cyan/10 focus:border-bssn-cyan outline-none transition-all cursor-pointer">
@@ -72,8 +72,8 @@
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                   Lihat / Reset Progres
                 </button>
-                <button @click="updateRole(user.id, user.role)" class="px-5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-colors">
-                  Simpan Role
+                <button @click="updateUserAdmin(user)" class="px-5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-colors">
+                  Simpan Perubahan
                 </button>
               </td>
             </tr>
@@ -237,11 +237,21 @@ watch(searchQuery, () => {
 // ==========================================
 // FUNGSI: UPDATE ROLE & MANAJEMEN PROGRES
 // ==========================================
-const updateRole = async (id: string, newRole: string) => {
+const updateUserAdmin = async (user: any) => {
   try {
-    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', id)
+    const { data, error } = await supabase.from('profiles').update({ 
+      role: user.role,
+      full_name: user.full_name,
+      nip: user.nip
+    })
+    .eq('id', user.id)
+    .select()
+
     if (error) throw error
-    alert('Sukses: Hak akses diperbarui!')
+    if (!data || data.length === 0) {
+      throw new Error("Pembaruan gagal karena terhalang aturan keamanan (RLS). Harap jalankan file migrasi SQL RLS Admin.");
+    }
+    alert('Sukses: Data pegawai berhasil diperbarui!')
   } catch (error: any) { 
     alert('Gagal: ' + error.message) 
   }
