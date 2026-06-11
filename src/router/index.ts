@@ -66,6 +66,11 @@ const routes = [
         component: () => import('../views/management/CourseManagerView.vue')
       },
       {
+        path: 'management/curriculum',
+        name: 'CurriculumManagement',
+        component: () => import('../views/management/CurriculumManagerView.vue')
+      },
+      {
         path: 'management/user',
         name: 'UserManagement',
         component: () => import('../views/management/UserManagementView.vue')
