@@ -15,6 +15,14 @@ const routes = [
     redirect: '/auth/login'
   },
   {
+    path: '/forgot-password',
+    redirect: '/auth/forgot-password'
+  },
+  {
+    path: '/update-password',
+    redirect: '/auth/update-password'
+  },
+  {
     path: '/',
     component: DashboardLayout,
     meta: { requiresAuth: true },
