@@ -33,26 +33,27 @@
     <!-- Empty State -->
     <div v-else-if="!activeModule || subjectStore.subjects.length === 0" class="bg-white p-16 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
       
-      <!-- === TAMBAHKAN BLOK INI: Tampilkan Video dari Modul jika ada === -->
+      <!-- === Tampilkan Video dari Modul jika ada === -->
       <div v-if="activeModule?.storage_path && activeModule.storage_path !== 'pending-upload-storage'" class="w-full max-w-4xl flex flex-col items-center">
         <video 
           v-if="activeModule.storage_path.toLowerCase().includes('.mp4')" 
           controls 
           class="w-full rounded-xl shadow-lg border border-slate-200"
         >
-          <source :src="activeModule.storage_path" type="video/mp4">
+          <!-- Menggunakan getMediaUrl di sini -->
+          <source :src="getMediaUrl(activeModule.storage_path)" type="video/mp4">
           Browser Anda tidak mendukung pemutar video.
         </video>
         
         <iframe 
           v-else-if="activeModule.storage_path.toLowerCase().includes('.pdf')" 
-          :src="activeModule.storage_path" 
+          :src="getMediaUrl(activeModule.storage_path)" 
           class="w-full h-[600px] rounded-xl shadow-lg border border-slate-200"
         ></iframe>
         
         <a 
           v-else 
-          :href="activeModule.storage_path" 
+          :href="getMediaUrl(activeModule.storage_path)" 
           target="_blank" 
           class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
@@ -61,7 +62,7 @@
       </div>
       <!-- ============================================================= -->
 
-      <!-- === PERBARUI BLOK LAMA ANDA MENJADI V-ELSE === -->
+      <!-- === Blok Else (Materi Benar-Benar Kosong) === -->
       <div v-else class="flex flex-col items-center">
         <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-slate-100 border-dashed">
            <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
@@ -166,27 +167,28 @@
                 Media Pembelajaran
               </span>
               <router-link v-if="activeSubject.content_type === 'pdf'" 
-                :to="`/pdf-viewer?url=${encodeURIComponent(activeSubject.storage_path)}&title=${encodeURIComponent(activeSubject.title)}`" 
+                :to="`/pdf-viewer?url=${encodeURIComponent(getMediaUrl(activeSubject.storage_path))}&title=${encodeURIComponent(activeSubject.title)}`" 
                 class="text-bssn-cyan text-xs font-bold hover:text-cyan-700 flex items-center gap-1.5 transition-colors bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
                 Layar Penuh
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
               </router-link>
             </div>
             
+            <!-- Menggunakan getMediaUrl di seluruh tag media -->
             <iframe v-if="activeSubject.content_type === 'pdf' || activeSubject.storage_path.toLowerCase().includes('.pdf')" 
-                    :src="activeSubject.storage_path" 
+                    :src="getMediaUrl(activeSubject.storage_path)" 
                     class="w-full h-[600px] bg-slate-100" 
                     title="Dokumen Modul">
             </iframe>
             
             <video v-else-if="activeSubject.content_type === 'video' || activeSubject.storage_path.toLowerCase().includes('.mp4')" 
-                   :src="activeSubject.storage_path" 
+                   :src="getMediaUrl(activeSubject.storage_path)" 
                    controls 
                    class="w-full h-auto max-h-[600px] bg-black">
             </video>
             
             <div v-else class="p-16 text-center">
-              <a :href="activeSubject.storage_path" target="_blank" class="px-6 py-3.5 bg-slate-900 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-slate-900/20 hover:bg-slate-800 inline-flex items-center gap-2">
+              <a :href="getMediaUrl(activeSubject.storage_path)" target="_blank" class="px-6 py-3.5 bg-slate-900 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-slate-900/20 hover:bg-slate-800 inline-flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Unduh File Materi
               </a>
@@ -248,6 +250,14 @@ const isLoading = ref(true)
 const activeModule = ref<any>(null)
 const activeSubjectId = ref<string | null>(null)
 const isMarkingRead = ref(false)
+
+// Helper function to resolve Supabase storage paths
+const getMediaUrl = (path: string) => {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  const { data } = supabase.storage.from('course-media').getPublicUrl(path)
+  return data.publicUrl
+}
 
 const fetchInitialData = async () => {
   isLoading.value = true
